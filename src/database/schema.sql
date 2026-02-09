@@ -6,9 +6,11 @@ CREATE TABLE IF NOT EXISTS usuarios (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     nombre TEXT NOT NULL,
     email TEXT UNIQUE NOT NULL,
+    username TEXT UNIQUE,
     password_hash TEXT NOT NULL,
     rol TEXT CHECK(rol IN ('admin', 'tecnico', 'cliente')) NOT NULL DEFAULT 'tecnico',
     cliente_id INTEGER,
+    perfil_publico INTEGER DEFAULT 0,
     activo INTEGER DEFAULT 1,
     creado_en DATETIME DEFAULT CURRENT_TIMESTAMP,
     actualizado_en DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -26,8 +28,10 @@ CREATE TABLE IF NOT EXISTS clientes (
     email TEXT,
     ubicacion TEXT,
     actividad_principal TEXT,
+    creado_por INTEGER,
     creado_en DATETIME DEFAULT CURRENT_TIMESTAMP,
-    actualizado_en DATETIME DEFAULT CURRENT_TIMESTAMP
+    actualizado_en DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (creado_por) REFERENCES usuarios(id) ON DELETE SET NULL
 );
 
 -- Tabla de Contactos adicionales por Cliente
@@ -113,3 +117,18 @@ CREATE INDEX IF NOT EXISTS idx_reuniones_cliente ON reuniones(cliente_id);
 CREATE INDEX IF NOT EXISTS idx_reuniones_fecha ON reuniones(fecha_hora);
 CREATE INDEX IF NOT EXISTS idx_asistentes_reunion ON asistentes(reunion_id);
 CREATE INDEX IF NOT EXISTS idx_anexos_reunion ON anexos(reunion_id);
+
+-- Tabla de Compartidos
+CREATE TABLE IF NOT EXISTS compartidos (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tipo TEXT CHECK(tipo IN ('cliente', 'reunion')) NOT NULL,
+    recurso_id INTEGER NOT NULL,
+    compartido_por INTEGER NOT NULL,
+    compartido_con INTEGER NOT NULL,
+    creado_en DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (compartido_por) REFERENCES usuarios(id) ON DELETE CASCADE,
+    FOREIGN KEY (compartido_con) REFERENCES usuarios(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_compartidos_con ON compartidos(compartido_con);
+CREATE INDEX IF NOT EXISTS idx_compartidos_por ON compartidos(compartido_por);

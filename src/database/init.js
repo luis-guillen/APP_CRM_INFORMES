@@ -29,6 +29,16 @@ async function init() {
 
     console.log('✅ Tablas creadas correctamente\n');
 
+    // Migraciones para bases de datos existentes
+    const migrations = [
+        "ALTER TABLE usuarios ADD COLUMN username TEXT UNIQUE",
+        "ALTER TABLE usuarios ADD COLUMN perfil_publico INTEGER DEFAULT 0",
+        "ALTER TABLE clientes ADD COLUMN creado_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL"
+    ];
+    for (const migration of migrations) {
+        try { db.exec(migration); } catch (e) { /* columna ya existe */ }
+    }
+
     // Crear usuario administrador por defecto si no existe
     const adminExists = db.prepare('SELECT id FROM usuarios WHERE email = ?').get('admin@reker.es');
 

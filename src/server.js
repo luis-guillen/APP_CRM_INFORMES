@@ -40,6 +40,7 @@ app.use('/api/clientes', requireDb, require('./routes/clientes'));
 app.use('/api/reuniones', requireDb, require('./routes/reuniones'));
 app.use('/api/usuarios', requireDb, require('./routes/usuarios'));
 app.use('/api/informes', requireDb, require('./routes/informes'));
+app.use('/api/compartir', requireDb, require('./routes/compartir'));
 
 // Ruta fallback para SPA (DESPUÉS de /health y /api)
 app.get('*', (req, res) => {
@@ -99,6 +100,18 @@ async function initializeDatabase(db) {
     }
 
     db.save();
+
+    // Migraciones para bases de datos existentes
+    const migrations = [
+        "ALTER TABLE usuarios ADD COLUMN username TEXT UNIQUE",
+        "ALTER TABLE usuarios ADD COLUMN perfil_publico INTEGER DEFAULT 0",
+        "ALTER TABLE clientes ADD COLUMN creado_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL"
+    ];
+    for (const m of migrations) {
+        try { db.exec(m); } catch (e) { /* columna ya existe */ }
+    }
+    db.save();
+
     console.log('✅ Base de datos inicializada');
 }
 

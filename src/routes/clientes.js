@@ -51,7 +51,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // POST /api/clientes - Crear cliente (solo admin)
-router.post('/', authorize('admin'), async (req, res) => {
+router.post('/', authorize('admin', 'tecnico'), async (req, res) => {
     try {
         const { empresa, cif, persona_contacto, cargo, telefono, email, ubicacion, actividad_principal, contactos } = req.body;
 
@@ -61,9 +61,9 @@ router.post('/', authorize('admin'), async (req, res) => {
 
         const db = await getDb();
         const result = db.prepare(`
-            INSERT INTO clientes (empresa, cif, persona_contacto, cargo, telefono, email, ubicacion, actividad_principal)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        `).run(empresa, cif || null, persona_contacto, cargo || null, telefono || null, email || null, ubicacion || null, actividad_principal || null);
+            INSERT INTO clientes (empresa, cif, persona_contacto, cargo, telefono, email, ubicacion, actividad_principal, creado_por)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(empresa, cif || null, persona_contacto, cargo || null, telefono || null, email || null, ubicacion || null, actividad_principal || null, req.user.id);
 
         const clienteId = result.lastInsertRowid;
 

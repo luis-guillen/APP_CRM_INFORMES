@@ -157,6 +157,9 @@ function navigateTo(view) {
         case 'informes':
             loadInformes();
             break;
+        case 'comunidad':
+            loadComunidad();
+            break;
         case 'usuarios':
             loadUsuarios();
             break;
@@ -236,33 +239,31 @@ async function loadClientes() {
 
 function renderClientes(clientes) {
     const container = document.getElementById('clientes-list');
-
     if (clientes.length === 0) {
-        container.innerHTML = '<p style="color: var(--color-text-light); padding: 40px; text-align: center;">No hay clientes registrados</p>';
+        container.innerHTML = '<div class="empty-state"><p>No hay clientes registrados</p></div>';
         return;
     }
 
     container.innerHTML = clientes.map(c => `
         <div class="data-card">
-            <div class="data-card-header">
-                <div>
-                    <div class="data-card-title">${c.empresa}</div>
-                    <div class="data-card-subtitle">${c.persona_contacto}</div>
+            <div class="card-header">
+                <h3>${c.empresa}</h3>
+                <div class="card-actions">
+                    <button class="btn btn-ghost btn-small" onclick="openCompartirDialog('cliente', ${c.id}, '${c.empresa.replace(/'/g, "\\'")}')" title="Compartir">🔗</button>
+                    <button class="btn btn-ghost btn-small" onclick="viewCliente(${c.id})">Ver</button>
+                    <button class="btn btn-ghost btn-small admin-only" onclick="editCliente(${c.id})">Editar</button>
+                    <button class="btn btn-ghost btn-small btn-danger admin-only" onclick="deleteCliente(${c.id})">Eliminar</button>
                 </div>
             </div>
-            <div class="data-card-body">
-                <p><strong>Cargo:</strong> ${c.cargo || '-'}</p>
-                <p><strong>Email:</strong> ${c.email || '-'}</p>
+            <div class="card-body">
+                <p><strong>Contacto:</strong> ${c.persona_contacto}</p>
                 <p><strong>Teléfono:</strong> ${c.telefono || '-'}</p>
+                <p><strong>Email:</strong> ${c.email || '-'}</p>
                 <p><strong>Ubicación:</strong> ${c.ubicacion || '-'}</p>
-            </div>
-            <div class="data-card-actions">
-                <button class="btn btn-small btn-secondary" onclick="viewCliente(${c.id})">Ver Detalles</button>
-                ${App.user?.rol === 'admin' ? `<button class="btn btn-small btn-primary" onclick="editCliente(${c.id})">Editar</button>` : ''}
-                ${App.user?.rol === 'admin' ? `<button class="btn btn-small btn-danger" onclick="deleteCliente(${c.id})">Eliminar</button>` : ''}
             </div>
         </div>
     `).join('');
+    updateAdminVisibility();
 }
 
 function openClienteForm(cliente = null) {
@@ -482,31 +483,27 @@ async function loadReuniones() {
 
 function renderReuniones(reuniones) {
     const container = document.getElementById('reuniones-list');
-
     if (reuniones.length === 0) {
-        container.innerHTML = '<p style="color: var(--color-text-light); padding: 40px; text-align: center;">No hay reuniones registradas</p>';
+        container.innerHTML = '<div class="empty-state"><p>No hay reuniones registradas</p></div>';
         return;
     }
 
     container.innerHTML = reuniones.map(r => `
         <div class="data-card">
-            <div class="data-card-header">
-                <div>
-                    <div class="data-card-title">${r.codigo_referencia}</div>
-                    <div class="data-card-subtitle">${r.cliente_empresa}</div>
+            <div class="card-header">
+                <h3>${r.codigo_referencia}</h3>
+                <div class="card-actions">
+                    <button class="btn btn-ghost btn-small" onclick="openCompartirDialog('reunion', ${r.id}, '${r.codigo_referencia.replace(/'/g, "\\'")}')" title="Compartir">🔗</button>
+                    <button class="btn btn-ghost btn-small" onclick="viewReunion(${r.id})">Ver</button>
+                    <button class="btn btn-ghost btn-small" onclick="editReunion(${r.id})">Editar</button>
+                    <button class="btn btn-ghost btn-small btn-danger" onclick="deleteReunion(${r.id})">Eliminar</button>
                 </div>
-                <span class="badge badge-tecnico">${formatDate(r.fecha_hora)}</span>
             </div>
-            <div class="data-card-body">
+            <div class="card-body">
+                <p><strong>Cliente:</strong> ${r.cliente_empresa}</p>
+                <p><strong>Fecha:</strong> ${formatDateTime(r.fecha_hora)}</p>
                 <p><strong>Lugar:</strong> ${r.lugar || '-'}</p>
                 <p><strong>Motivo:</strong> ${r.motivo || '-'}</p>
-            </div>
-            <div class="data-card-actions">
-                <button class="btn btn-small btn-secondary" onclick="viewReunion(${r.id})">Ver</button>
-                <button class="btn btn-small btn-primary" onclick="editReunion(${r.id})">Editar</button>
-                <button class="btn btn-small btn-ghost" onclick="generatePDF(${r.id})">📄 PDF</button>
-                <button class="btn btn-small btn-ghost" onclick="generateDOCX(${r.id})">📝 Word</button>
-                ${App.user?.rol === 'admin' ? `<button class="btn btn-small btn-danger" onclick="deleteReunion(${r.id})">Eliminar</button>` : ''}
             </div>
         </div>
     `).join('');
@@ -859,7 +856,7 @@ async function uploadAnexos(reunionId) {
         const response = await fetch(`${API_BASE}/reuniones/${reunionId}/anexos`, {
             method: 'POST',
             headers: {
-                'Authorization': `Bearer ${state.token}`
+                'Authorization': `Bearer ${App.token}`
             },
             body: formData
         });
@@ -1205,6 +1202,264 @@ function formatFileSize(bytes) {
     if (bytes < 1024) return bytes + ' B';
     if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
+// ================================
+// Comunidad
+// ================================
+async function loadComunidad() {
+    try {
+        const recibidos = await api('/compartir/recibidos');
+        renderCompartidosRecibidos(recibidos);
+    } catch (error) {
+        console.error('Error al cargar comunidad:', error);
+    }
+}
+
+function renderCompartidosRecibidos(data) {
+    const container = document.getElementById('compartidos-recibidos');
+    const items = [];
+
+    if (data.clientes && data.clientes.length > 0) {
+        for (const c of data.clientes) {
+            items.push(`
+                <div class="data-card shared-card">
+                    <div class="card-header">
+                        <h3>🏢 ${c.empresa}</h3>
+                        <div class="card-actions">
+                            <span class="badge badge-shared">Compartido por @${c.compartido_por_username}</span>
+                            <button class="btn btn-ghost btn-small" onclick="viewCliente(${c.id})">Ver</button>
+                            <button class="btn btn-ghost btn-small btn-danger" onclick="eliminarCompartido(${c.compartido_id})">✖</button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <p><strong>Contacto:</strong> ${c.persona_contacto}</p>
+                        <p><strong>Ubicación:</strong> ${c.ubicacion || '-'}</p>
+                    </div>
+                </div>
+            `);
+        }
+    }
+
+    if (data.reuniones && data.reuniones.length > 0) {
+        for (const r of data.reuniones) {
+            items.push(`
+                <div class="data-card shared-card">
+                    <div class="card-header">
+                        <h3>📋 ${r.codigo_referencia}</h3>
+                        <div class="card-actions">
+                            <span class="badge badge-shared">Compartido por @${r.compartido_por_username}</span>
+                            <button class="btn btn-ghost btn-small" onclick="viewReunion(${r.id})">Ver</button>
+                            <button class="btn btn-ghost btn-small btn-danger" onclick="eliminarCompartido(${r.compartido_id})">✖</button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <p><strong>Cliente:</strong> ${r.cliente_empresa}</p>
+                        <p><strong>Fecha:</strong> ${formatDateTime(r.fecha_hora)}</p>
+                        <p><strong>Motivo:</strong> ${r.motivo || '-'}</p>
+                    </div>
+                </div>
+            `);
+        }
+    }
+
+    if (items.length === 0) {
+        container.innerHTML = '<div class="empty-state"><p>Nadie ha compartido contigo todavía</p></div>';
+    } else {
+        container.innerHTML = items.join('');
+    }
+}
+
+let searchTimeout;
+function searchUsuariosComunidad(query) {
+    clearTimeout(searchTimeout);
+    const container = document.getElementById('search-results-comunidad');
+
+    if (!query || query.length < 2) {
+        container.innerHTML = '<div class="empty-state"><p>Escribe al menos 2 caracteres para buscar</p></div>';
+        return;
+    }
+
+    searchTimeout = setTimeout(async () => {
+        try {
+            const users = await api(`/compartir/buscar/${encodeURIComponent(query)}`);
+            if (users.length === 0) {
+                container.innerHTML = '<div class="empty-state"><p>No se encontraron usuarios</p></div>';
+                return;
+            }
+
+            container.innerHTML = users.map(u => `
+                <div class="data-card user-card">
+                    <div class="card-header">
+                        <h3>${u.nombre}</h3>
+                        <div class="card-actions">
+                            ${u.perfil_publico
+                    ? `<span class="badge badge-public">🌐 Público</span>
+                                   <button class="btn btn-ghost btn-small" onclick="viewPerfilPublico('${u.username}')">Ver Perfil</button>`
+                    : '<span class="badge badge-private">🔒 Privado</span>'
+                }
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <p><strong>Username:</strong> @${u.username || 'sin configurar'}</p>
+                    </div>
+                </div>
+            `).join('');
+        } catch (error) {
+            container.innerHTML = '<div class="empty-state"><p>Error al buscar</p></div>';
+        }
+    }, 300);
+}
+
+async function viewPerfilPublico(username) {
+    try {
+        const perfil = await api(`/compartir/perfil/${username}`);
+
+        let html = `
+            <div class="perfil-publico">
+                <div class="perfil-header">
+                    <h2>👤 ${perfil.nombre}</h2>
+                    <span class="badge badge-public">@${perfil.username}</span>
+                </div>
+        `;
+
+        // Clientes
+        html += '<h3>🏢 Clientes</h3>';
+        if (perfil.clientes.length > 0) {
+            html += '<div class="perfil-items">';
+            for (const c of perfil.clientes) {
+                html += `
+                    <div class="perfil-item">
+                        <strong>${c.empresa}</strong> - ${c.persona_contacto}
+                        ${c.ubicacion ? `<br><small>📍 ${c.ubicacion}</small>` : ''}
+                    </div>
+                `;
+            }
+            html += '</div>';
+        } else {
+            html += '<p class="text-muted">Sin clientes</p>';
+        }
+
+        // Reuniones
+        html += '<h3>📋 Reuniones</h3>';
+        if (perfil.reuniones.length > 0) {
+            html += '<div class="perfil-items">';
+            for (const r of perfil.reuniones) {
+                html += `
+                    <div class="perfil-item">
+                        <strong>${r.codigo_referencia}</strong> - ${r.cliente_empresa}
+                        <br><small>📅 ${formatDateTime(r.fecha_hora)} ${r.lugar ? '| 📍 ' + r.lugar : ''}</small>
+                    </div>
+                `;
+            }
+            html += '</div>';
+        } else {
+            html += '<p class="text-muted">Sin reuniones</p>';
+        }
+
+        html += '</div>';
+
+        elements.modalTitle.textContent = `Perfil de @${username}`;
+        elements.modalBody.innerHTML = html;
+        openModal();
+    } catch (error) {
+        showToast(error.message || 'Error al ver perfil', 'error');
+    }
+}
+
+async function openPerfilConfig() {
+    try {
+        const perfil = await api('/compartir/mi-perfil');
+
+        elements.modalTitle.textContent = '⚙️ Configurar Mi Perfil';
+        elements.modalBody.innerHTML = `
+            <form id="perfil-form">
+                <div class="form-group">
+                    <label>Nombre de Usuario (@username)</label>
+                    <input type="text" id="perfil-username" value="${perfil.username || ''}" placeholder="mi_usuario" 
+                           pattern="[a-z0-9._-]{3,}" title="Mínimo 3 caracteres, solo letras minúsculas, números, puntos, guiones">
+                    <small>Solo letras, números, puntos y guiones. Mínimo 3 caracteres.</small>
+                </div>
+                <div class="form-group">
+                    <label class="toggle-label">
+                        <input type="checkbox" id="perfil-publico" ${perfil.perfil_publico ? 'checked' : ''}>
+                        <span>🌐 Perfil Público</span>
+                    </label>
+                    <small>Si activas esto, otros usuarios podrán ver tus clientes y reuniones al buscar tu @username.</small>
+                </div>
+                <button type="submit" class="btn btn-primary btn-full">Guardar Perfil</button>
+            </form>
+        `;
+
+        document.getElementById('perfil-form').onsubmit = async (e) => {
+            e.preventDefault();
+            try {
+                await api('/compartir/mi-perfil', {
+                    method: 'PUT',
+                    body: JSON.stringify({
+                        username: document.getElementById('perfil-username').value,
+                        perfil_publico: document.getElementById('perfil-publico').checked
+                    })
+                });
+                showToast('Perfil actualizado correctamente', 'success');
+                closeModal();
+            } catch (error) {
+                showToast(error.message || 'Error al guardar', 'error');
+            }
+        };
+
+        openModal();
+    } catch (error) {
+        showToast('Error al cargar perfil', 'error');
+    }
+}
+
+function openCompartirDialog(tipo, recursoId, nombre) {
+    elements.modalTitle.textContent = `🔗 Compartir ${tipo === 'cliente' ? 'Cliente' : 'Reunión'}`;
+    elements.modalBody.innerHTML = `
+        <div class="compartir-dialog">
+            <p>Compartir <strong>${nombre}</strong> con otro usuario:</p>
+            <form id="compartir-form">
+                <div class="form-group">
+                    <label>@username del destinatario</label>
+                    <input type="text" id="compartir-username" placeholder="@usuario" required>
+                </div>
+                <button type="submit" class="btn btn-primary btn-full">Compartir</button>
+            </form>
+        </div>
+    `;
+
+    document.getElementById('compartir-form').onsubmit = async (e) => {
+        e.preventDefault();
+        try {
+            const username = document.getElementById('compartir-username').value.replace('@', '').trim();
+            const result = await api('/compartir', {
+                method: 'POST',
+                body: JSON.stringify({
+                    tipo,
+                    recurso_id: recursoId,
+                    username_destino: username
+                })
+            });
+            showToast(result.message, 'success');
+            closeModal();
+        } catch (error) {
+            showToast(error.message || 'Error al compartir', 'error');
+        }
+    };
+
+    openModal();
+}
+
+async function eliminarCompartido(id) {
+    if (!confirm('¿Dejar de ver este contenido compartido?')) return;
+    try {
+        await api(`/compartir/${id}`, { method: 'DELETE' });
+        showToast('Compartido eliminado', 'success');
+        loadComunidad();
+    } catch (error) {
+        showToast('Error al eliminar compartido', 'error');
+    }
 }
 
 // ================================

@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,6 +9,7 @@
     <link rel="stylesheet" href="/css/styles.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 </head>
+
 <body>
     <!-- Pantalla de Login -->
     <div id="login-screen" class="screen">
@@ -52,6 +54,9 @@
                 </a>
                 <a href="#" class="nav-item" data-view="informes">
                     <span class="icon">📄</span> Informes
+                </a>
+                <a href="#" class="nav-item" data-view="comunidad">
+                    <span class="icon">🌐</span> Comunidad
                 </a>
                 <a href="#" class="nav-item admin-only" data-view="usuarios">
                     <span class="icon">👥</span> Usuarios
@@ -169,6 +174,37 @@
                 </header>
                 <div id="usuarios-list" class="data-grid"></div>
             </section>
+
+            <!-- Comunidad -->
+            <section id="view-comunidad" class="view">
+                <header class="view-header">
+                    <div>
+                        <h1>🌐 Comunidad</h1>
+                        <p>Comparte y descubre clientes y reuniones de otros usuarios</p>
+                    </div>
+                    <button id="btn-config-perfil" class="btn btn-primary" onclick="openPerfilConfig()">⚙️ Mi
+                        Perfil</button>
+                </header>
+
+                <div class="comunidad-layout">
+                    <!-- Buscar usuarios -->
+                    <div class="comunidad-section">
+                        <h3>🔍 Buscar Usuarios</h3>
+                        <div class="search-bar">
+                            <input type="text" id="search-usuarios-comunidad"
+                                placeholder="Buscar por @username o nombre..."
+                                onkeyup="searchUsuariosComunidad(this.value)">
+                        </div>
+                        <div id="search-results-comunidad" class="data-grid"></div>
+                    </div>
+
+                    <!-- Compartido conmigo -->
+                    <div class="comunidad-section">
+                        <h3>📥 Compartido Conmigo</h3>
+                        <div id="compartidos-recibidos" class="data-grid"></div>
+                    </div>
+                </div>
+            </section>
         </main>
     </div>
 
@@ -188,4 +224,5 @@
 
     <script src="/js/app.js"></script>
 </body>
+
 </html>
