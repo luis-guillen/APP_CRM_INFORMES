@@ -259,6 +259,7 @@ function renderClientes(clientes) {
             <div class="data-card-actions">
                 <button class="btn btn-small btn-secondary" onclick="viewCliente(${c.id})">Ver Detalles</button>
                 ${App.user?.rol === 'admin' ? `<button class="btn btn-small btn-primary" onclick="editCliente(${c.id})">Editar</button>` : ''}
+                ${App.user?.rol === 'admin' ? `<button class="btn btn-small btn-danger" onclick="deleteCliente(${c.id})">Eliminar</button>` : ''}
             </div>
         </div>
     `).join('');
@@ -378,6 +379,32 @@ async function editCliente(id) {
     }
 }
 
+async function deleteCliente(id) {
+    if (!confirm('¿Estás seguro de que deseas eliminar este cliente? Se eliminarán también todas sus reuniones.')) return;
+
+    try {
+        await api(`/clientes/${id}`, { method: 'DELETE' });
+        showToast('Cliente eliminado', 'success');
+        loadClientes();
+        loadDashboard();
+    } catch (error) {
+        showToast(error.message || 'Error al eliminar cliente', 'error');
+    }
+}
+
+async function deleteReunion(id) {
+    if (!confirm('¿Estás seguro de que deseas eliminar esta reunión?')) return;
+
+    try {
+        await api(`/reuniones/${id}`, { method: 'DELETE' });
+        showToast('Reunión eliminada', 'success');
+        loadReuniones();
+        loadDashboard();
+    } catch (error) {
+        showToast(error.message || 'Error al eliminar reunión', 'error');
+    }
+}
+
 // ================================
 // Reuniones
 // ================================
@@ -417,6 +444,7 @@ function renderReuniones(reuniones) {
                 <button class="btn btn-small btn-primary" onclick="editReunion(${r.id})">Editar</button>
                 <button class="btn btn-small btn-ghost" onclick="generatePDF(${r.id})">📄 PDF</button>
                 <button class="btn btn-small btn-ghost" onclick="generateDOCX(${r.id})">📝 Word</button>
+                ${App.user?.rol === 'admin' ? `<button class="btn btn-small btn-danger" onclick="deleteReunion(${r.id})">Eliminar</button>` : ''}
             </div>
         </div>
     `).join('');
