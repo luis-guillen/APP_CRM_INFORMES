@@ -1,6 +1,8 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const fs = require('fs');
+const bcrypt = require('bcryptjs');
 const { getDb } = require('./database/db');
 
 const app = express();
@@ -38,12 +40,57 @@ app.use((err, req, res, next) => {
     });
 });
 
-// Iniciar servidor después de inicializar la base de datos
+// Función para inicializar la base de datos con esquema y usuario admin
+async function initializeDatabase(db) {
+    console.log('🔧 Inicializando base de datos...');
+
+    // Leer y ejecutar el esquema SQL
+    const schemaPath = path.join(__dirname, 'database/schema.sql');
+    const schema = fs.readFileSync(schemaPath, 'utf8');
+
+    const statements = schema.split(';').filter(s => s.trim());
+    for (const statement of statements) {
+        if (statement.trim()) {
+            try {
+                db.exec(statement);
+            } catch (e) {
+                if (!e.message.includes('already exists')) {
+                    console.error('Error ejecutando SQL:', e.message);
+                }
+            }
+        }
+    }
+
+    // Crear usuario administrador por defecto si no existe
+    const adminExists = db.prepare('SELECT id FROM usuarios WHERE email = ?').get('admin@reker.es');
+
+    if (!adminExists) {
+        const passwordHash = bcrypt.hashSync('admin123', 10);
+        db.prepare(`
+            INSERT INTO usuarios (nombre, email, password_hash, rol)
+            VALUES (?, ?, ?, ?)
+        `).run('Administrador', 'admin@reker.es', passwordHash, 'admin');
+        console.log('👤 Usuario admin creado: admin@reker.es / admin123');
+    }
+
+    // Crear directorios necesarios
+    const dirs = ['../uploads', '../uploads/documentos', '../uploads/fotografias', '../reports'];
+    for (const dir of dirs) {
+        const fullPath = path.join(__dirname, dir);
+        if (!fs.existsSync(fullPath)) {
+            fs.mkdirSync(fullPath, { recursive: true });
+        }
+    }
+
+    db.save();
+    console.log('✅ Base de datos inicializada');
+}
+
+// Iniciar servidor
 async function start() {
     try {
-        // Inicializar la base de datos
-        await getDb();
-        console.log('✅ Base de datos conectada');
+        const db = await getDb();
+        await initializeDatabase(db);
 
         app.listen(PORT, () => {
             console.log(`
