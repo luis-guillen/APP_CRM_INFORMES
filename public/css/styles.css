@@ -519,9 +519,12 @@ body {
     margin-bottom: 16px;
 }
 
-/* Shared card styling */
 .shared-card {
     border-left-color: var(--color-success);
+}
+
+.public-card {
+    border-left-color: #38b2ac;
 }
 
 .user-card {
@@ -572,6 +575,17 @@ body {
     background: var(--color-bg);
     border-radius: var(--radius-sm);
     border-left: 3px solid var(--color-accent);
+}
+
+.perfil-item-reunion {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+}
+
+.perfil-item-info {
+    flex: 1;
 }
 
 .perfil-item strong {

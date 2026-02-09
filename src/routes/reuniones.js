@@ -422,4 +422,26 @@ router.delete('/:reunionId/anexos/:anexoId', authorize('admin', 'tecnico'), asyn
     }
 });
 
+// PUT /api/reuniones/:id/visibilidad - Toggle público/privado
+router.put('/:id/visibilidad', authorize('admin', 'tecnico'), async (req, res) => {
+    try {
+        const db = await getDb();
+        const id = parseInt(req.params.id);
+        const { publico } = req.body;
+
+        const reunion = db.prepare('SELECT * FROM reuniones WHERE id = ?').get(id);
+        if (!reunion) {
+            return res.status(404).json({ error: 'Reunión no encontrada' });
+        }
+
+        db.prepare('UPDATE reuniones SET publico = ? WHERE id = ?').run(publico ? 1 : 0, id);
+        db.save();
+
+        res.json({ message: publico ? 'Reunión marcada como pública' : 'Reunión marcada como privada', publico: publico ? 1 : 0 });
+    } catch (error) {
+        console.error('Error al cambiar visibilidad:', error);
+        res.status(500).json({ error: 'Error al cambiar visibilidad' });
+    }
+});
+
 module.exports = router;

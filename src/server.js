@@ -105,7 +105,9 @@ async function initializeDatabase(db) {
     const migrations = [
         "ALTER TABLE usuarios ADD COLUMN username TEXT UNIQUE",
         "ALTER TABLE usuarios ADD COLUMN perfil_publico INTEGER DEFAULT 0",
-        "ALTER TABLE clientes ADD COLUMN creado_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL"
+        "ALTER TABLE clientes ADD COLUMN creado_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL",
+        "ALTER TABLE clientes ADD COLUMN publico INTEGER DEFAULT 0",
+        "ALTER TABLE reuniones ADD COLUMN publico INTEGER DEFAULT 0"
     ];
     for (const m of migrations) {
         try { db.exec(m); } catch (e) { /* columna ya existe */ }

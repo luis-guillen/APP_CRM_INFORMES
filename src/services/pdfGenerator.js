@@ -25,7 +25,8 @@ class PDFGenerator {
      * @param {string} outputPath - Ruta de salida del PDF
      * @returns {Promise<string>} - Ruta del archivo generado
      */
-    async generate(data, outputPath) {
+    async generate(data, outputPath, baseUrl = '') {
+        this.baseUrl = baseUrl;
         return new Promise((resolve, reject) => {
             try {
                 const doc = new PDFDocument({
@@ -328,10 +329,26 @@ class PDFGenerator {
             for (const doc_anexo of documentos) {
                 const isPdf = doc_anexo.nombre_archivo && doc_anexo.nombre_archivo.toLowerCase().endsWith('.pdf');
                 const label = isPdf ? '📥' : '📄';
-                doc.fontSize(10)
-                    .fillColor(this.colors.text)
-                    .font('Helvetica')
-                    .text(`• ${label} ${doc_anexo.nombre_archivo}${doc_anexo.descripcion ? ': ' + doc_anexo.descripcion : ''}${isPdf ? '  [Documento PDF adjunto]' : ''}`);
+
+                if (isPdf && doc_anexo.ruta_archivo && this.baseUrl) {
+                    // Crear link HTTP clickable para PDFs
+                    const relativePath = doc_anexo.ruta_archivo.replace(/^.*[\/\\]uploads[\/\\]/, 'uploads/');
+                    const url = `${this.baseUrl}/${relativePath}`;
+                    doc.fontSize(10)
+                        .fillColor(this.colors.text)
+                        .font('Helvetica')
+                        .text(`• ${label} `, { continued: true })
+                        .fillColor(this.colors.accent)
+                        .text(doc_anexo.nombre_archivo, { link: url, underline: true, continued: true })
+                        .fillColor(this.colors.text)
+                        .font('Helvetica')
+                        .text(doc_anexo.descripcion ? ` - ${doc_anexo.descripcion}` : '');
+                } else {
+                    doc.fontSize(10)
+                        .fillColor(this.colors.text)
+                        .font('Helvetica')
+                        .text(`• ${label} ${doc_anexo.nombre_archivo}${doc_anexo.descripcion ? ': ' + doc_anexo.descripcion : ''}`);
+                }
             }
         } else {
             doc.fontSize(10)

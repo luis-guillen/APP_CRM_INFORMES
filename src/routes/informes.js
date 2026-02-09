@@ -66,8 +66,9 @@ router.get('/:reunionId/pdf', async (req, res) => {
         const filename = `Informe_${data.codigo_referencia}_${Date.now()}.pdf`;
         const outputPath = path.join(reportsDir, filename);
 
+        const baseUrl = `${req.protocol}://${req.get('host')}`;
         const generator = new PDFGenerator();
-        await generator.generate(data, outputPath);
+        await generator.generate(data, outputPath, baseUrl);
 
         res.download(outputPath, filename);
     } catch (error) {

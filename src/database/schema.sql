@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS clientes (
     ubicacion TEXT,
     actividad_principal TEXT,
     creado_por INTEGER,
+    publico INTEGER DEFAULT 0,
     creado_en DATETIME DEFAULT CURRENT_TIMESTAMP,
     actualizado_en DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (creado_por) REFERENCES usuarios(id) ON DELETE SET NULL
@@ -57,6 +58,7 @@ CREATE TABLE IF NOT EXISTS reuniones (
     lugar TEXT,
     motivo TEXT,
     autor_documento TEXT,
+    publico INTEGER DEFAULT 0,
     creado_en DATETIME DEFAULT CURRENT_TIMESTAMP,
     actualizado_en DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (cliente_id) REFERENCES clientes(id) ON DELETE CASCADE,

@@ -193,4 +193,26 @@ router.get('/:id/reuniones', async (req, res) => {
     }
 });
 
+// PUT /api/clientes/:id/visibilidad - Toggle público/privado
+router.put('/:id/visibilidad', authorize('admin', 'tecnico'), async (req, res) => {
+    try {
+        const db = await getDb();
+        const id = parseInt(req.params.id);
+        const { publico } = req.body;
+
+        const cliente = db.prepare('SELECT * FROM clientes WHERE id = ?').get(id);
+        if (!cliente) {
+            return res.status(404).json({ error: 'Cliente no encontrado' });
+        }
+
+        db.prepare('UPDATE clientes SET publico = ? WHERE id = ?').run(publico ? 1 : 0, id);
+        db.save();
+
+        res.json({ message: publico ? 'Cliente marcado como público' : 'Cliente marcado como privado', publico: publico ? 1 : 0 });
+    } catch (error) {
+        console.error('Error al cambiar visibilidad:', error);
+        res.status(500).json({ error: 'Error al cambiar visibilidad' });
+    }
+});
+
 module.exports = router;

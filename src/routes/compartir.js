@@ -1,7 +1,10 @@
 const express = require('express');
 const router = express.Router();
+const path = require('path');
+const fs = require('fs');
 const { getDb } = require('../database/db');
 const { authenticate } = require('../middleware/auth');
+const PDFGenerator = require('../services/pdfGenerator');
 
 router.use(authenticate);
 
@@ -74,19 +77,19 @@ router.get('/perfil/:username', async (req, res) => {
             return res.status(403).json({ error: 'Este perfil es privado' });
         }
 
-        // Obtener clientes del usuario
+        // Obtener clientes públicos del usuario
         const clientes = db.prepare(`
             SELECT id, empresa, persona_contacto, ubicacion, actividad_principal
-            FROM clientes WHERE creado_por = ?
+            FROM clientes WHERE creado_por = ? AND publico = 1
             ORDER BY empresa ASC
         `).all(user.id);
 
-        // Obtener reuniones del usuario
+        // Obtener reuniones públicas del usuario
         const reuniones = db.prepare(`
             SELECT r.id, r.codigo_referencia, r.fecha_hora, r.lugar, r.motivo, c.empresa as cliente_empresa
             FROM reuniones r
             JOIN clientes c ON r.cliente_id = c.id
-            WHERE r.creado_por = ?
+            WHERE r.creado_por = ? AND r.publico = 1
             ORDER BY r.fecha_hora DESC
         `).all(user.id);
 
@@ -246,6 +249,69 @@ router.delete('/:id', async (req, res) => {
     } catch (error) {
         console.error('Error al eliminar compartido:', error);
         res.status(500).json({ error: 'Error al eliminar compartido' });
+    }
+});
+
+// ================================
+// Descargar PDF de reunión pública
+// ================================
+
+// GET /api/compartir/perfil/:username/reunion/:id/pdf - Descargar PDF de reunión pública
+router.get('/perfil/:username/reunion/:id/pdf', async (req, res) => {
+    try {
+        const db = await getDb();
+        const username = req.params.username.toLowerCase();
+        const reunionId = parseInt(req.params.id);
+
+        const user = db.prepare('SELECT id, perfil_publico FROM usuarios WHERE username = ?').get(username);
+        if (!user || !user.perfil_publico) {
+            return res.status(403).json({ error: 'Perfil no disponible' });
+        }
+
+        const reunion = db.prepare(`
+            SELECT r.*, c.empresa as cliente_empresa
+            FROM reuniones r
+            JOIN clientes c ON r.cliente_id = c.id
+            WHERE r.id = ? AND r.creado_por = ? AND r.publico = 1
+        `).get(reunionId, user.id);
+
+        if (!reunion) {
+            return res.status(404).json({ error: 'Reunión no encontrada o no es pública' });
+        }
+
+        const cliente = db.prepare('SELECT * FROM clientes WHERE id = ?').get(reunion.cliente_id);
+        const asistentes = db.prepare('SELECT * FROM asistentes WHERE reunion_id = ?').all(reunionId);
+        const resumen_ejecutivo = db.prepare('SELECT * FROM resumenes_ejecutivos WHERE reunion_id = ?').get(reunionId);
+        const necesidad_cliente = db.prepare('SELECT * FROM necesidades_cliente WHERE reunion_id = ?').get(reunionId);
+        const situacion_actual = db.prepare('SELECT * FROM situacion_actual WHERE reunion_id = ?').get(reunionId);
+        const anexos = db.prepare('SELECT * FROM anexos WHERE reunion_id = ?').all(reunionId);
+
+        const data = {
+            ...reunion,
+            cliente,
+            asistentes,
+            resumen_ejecutivo,
+            necesidad_cliente,
+            situacion_actual,
+            anexos
+        };
+
+        const reportsDir = path.join(__dirname, '../../reports');
+        if (!fs.existsSync(reportsDir)) {
+            fs.mkdirSync(reportsDir, { recursive: true });
+        }
+
+        const filename = `Informe_${data.codigo_referencia}_${Date.now()}.pdf`;
+        const outputPath = path.join(reportsDir, filename);
+
+        const baseUrl = `${req.protocol}://${req.get('host')}`;
+        const generator = new PDFGenerator();
+        await generator.generate(data, outputPath, baseUrl);
+
+        res.download(outputPath, filename);
+    } catch (error) {
+        console.error('Error al generar PDF público:', error);
+        res.status(500).json({ error: 'Error al generar el informe PDF' });
     }
 });
 

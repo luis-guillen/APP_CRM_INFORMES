@@ -245,11 +245,12 @@ function renderClientes(clientes) {
     }
 
     container.innerHTML = clientes.map(c => `
-        <div class="data-card">
+        <div class="data-card ${c.publico ? 'public-card' : ''}">
             <div class="card-header">
-                <h3>${c.empresa}</h3>
+                <h3>${c.empresa} ${c.publico ? '<span class="badge badge-public">🌐</span>' : ''}</h3>
                 <div class="card-actions">
-                    <button class="btn btn-ghost btn-small" onclick="openCompartirDialog('cliente', ${c.id}, '${c.empresa.replace(/'/g, "\\'")}')" title="Compartir">🔗</button>
+                    <button class="btn btn-ghost btn-small" onclick="toggleVisibilidad('clientes', ${c.id}, ${c.publico ? 0 : 1})" title="${c.publico ? 'Hacer privado' : 'Hacer público'}">${c.publico ? '🔒' : '🌐'}</button>
+                    <button class="btn btn-ghost btn-small" onclick="openCompartirDialog('cliente', ${c.id}, '${c.empresa.replace(/'/g, "\\\\'")}')" title="Compartir">🔗</button>
                     <button class="btn btn-ghost btn-small" onclick="viewCliente(${c.id})">Ver</button>
                     <button class="btn btn-ghost btn-small admin-only" onclick="editCliente(${c.id})">Editar</button>
                     <button class="btn btn-ghost btn-small btn-danger admin-only" onclick="deleteCliente(${c.id})">Eliminar</button>
@@ -489,11 +490,12 @@ function renderReuniones(reuniones) {
     }
 
     container.innerHTML = reuniones.map(r => `
-        <div class="data-card">
+        <div class="data-card ${r.publico ? 'public-card' : ''}">
             <div class="card-header">
-                <h3>${r.codigo_referencia}</h3>
+                <h3>${r.codigo_referencia} ${r.publico ? '<span class="badge badge-public">🌐</span>' : ''}</h3>
                 <div class="card-actions">
-                    <button class="btn btn-ghost btn-small" onclick="openCompartirDialog('reunion', ${r.id}, '${r.codigo_referencia.replace(/'/g, "\\'")}')" title="Compartir">🔗</button>
+                    <button class="btn btn-ghost btn-small" onclick="toggleVisibilidad('reuniones', ${r.id}, ${r.publico ? 0 : 1})" title="${r.publico ? 'Hacer privado' : 'Hacer público'}">${r.publico ? '🔒' : '🌐'}</button>
+                    <button class="btn btn-ghost btn-small" onclick="openCompartirDialog('reunion', ${r.id}, '${r.codigo_referencia.replace(/'/g, "\\\\'")}')" title="Compartir">🔗</button>
                     <button class="btn btn-ghost btn-small" onclick="viewReunion(${r.id})">Ver</button>
                     <button class="btn btn-ghost btn-small" onclick="editReunion(${r.id})">Editar</button>
                     <button class="btn btn-ghost btn-small btn-danger" onclick="deleteReunion(${r.id})">Eliminar</button>
@@ -1323,8 +1325,8 @@ async function viewPerfilPublico(username) {
                 </div>
         `;
 
-        // Clientes
-        html += '<h3>🏢 Clientes</h3>';
+        // Clientes públicos
+        html += '<h3>🏢 Clientes Públicos</h3>';
         if (perfil.clientes.length > 0) {
             html += '<div class="perfil-items">';
             for (const c of perfil.clientes) {
@@ -1337,24 +1339,27 @@ async function viewPerfilPublico(username) {
             }
             html += '</div>';
         } else {
-            html += '<p class="text-muted">Sin clientes</p>';
+            html += '<p class="text-muted">Sin clientes públicos</p>';
         }
 
-        // Reuniones
-        html += '<h3>📋 Reuniones</h3>';
+        // Reuniones públicas
+        html += '<h3>📋 Informes de Reuniones Públicos</h3>';
         if (perfil.reuniones.length > 0) {
             html += '<div class="perfil-items">';
             for (const r of perfil.reuniones) {
                 html += `
-                    <div class="perfil-item">
-                        <strong>${r.codigo_referencia}</strong> - ${r.cliente_empresa}
-                        <br><small>📅 ${formatDateTime(r.fecha_hora)} ${r.lugar ? '| 📍 ' + r.lugar : ''}</small>
+                    <div class="perfil-item perfil-item-reunion">
+                        <div class="perfil-item-info">
+                            <strong>${r.codigo_referencia}</strong> - ${r.cliente_empresa}
+                            <br><small>📅 ${formatDateTime(r.fecha_hora)} ${r.lugar ? '| 📍 ' + r.lugar : ''}</small>
+                        </div>
+                        <a href="${API_BASE}/compartir/perfil/${username}/reunion/${r.id}/pdf" class="btn btn-small btn-primary" target="_blank">📄 PDF</a>
                     </div>
                 `;
             }
             html += '</div>';
         } else {
-            html += '<p class="text-muted">Sin reuniones</p>';
+            html += '<p class="text-muted">Sin reuniones públicas</p>';
         }
 
         html += '</div>';
@@ -1459,6 +1464,21 @@ async function eliminarCompartido(id) {
         loadComunidad();
     } catch (error) {
         showToast('Error al eliminar compartido', 'error');
+    }
+}
+
+async function toggleVisibilidad(tipo, id, publico) {
+    try {
+        await api(`/${tipo}/${id}/visibilidad`, {
+            method: 'PUT',
+            body: JSON.stringify({ publico })
+        });
+        showToast(publico ? 'Marcado como público 🌐' : 'Marcado como privado 🔒', 'success');
+        // Recargar la vista actual
+        if (tipo === 'clientes') loadClientes();
+        else loadReuniones();
+    } catch (error) {
+        showToast('Error al cambiar visibilidad', 'error');
     }
 }
 
