@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS usuarios (
 CREATE TABLE IF NOT EXISTS clientes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     empresa TEXT NOT NULL,
+    cif TEXT,
     persona_contacto TEXT NOT NULL,
     cargo TEXT,
     telefono TEXT,
@@ -27,6 +28,19 @@ CREATE TABLE IF NOT EXISTS clientes (
     actividad_principal TEXT,
     creado_en DATETIME DEFAULT CURRENT_TIMESTAMP,
     actualizado_en DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Tabla de Contactos adicionales por Cliente
+CREATE TABLE IF NOT EXISTS contactos_cliente (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    cliente_id INTEGER NOT NULL,
+    nombre TEXT NOT NULL,
+    cargo TEXT,
+    telefono TEXT,
+    email TEXT,
+    es_principal INTEGER DEFAULT 0,
+    creado_en DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (cliente_id) REFERENCES clientes(id) ON DELETE CASCADE
 );
 
 -- Tabla de Reuniones

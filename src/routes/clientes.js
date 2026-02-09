@@ -39,6 +39,10 @@ router.get('/:id', async (req, res) => {
             return res.status(403).json({ error: 'No tienes acceso a este cliente' });
         }
 
+        // Obtener contactos adicionales
+        const contactos = db.prepare('SELECT * FROM contactos_cliente WHERE cliente_id = ?').all(cliente.id);
+        cliente.contactos = contactos;
+
         res.json(cliente);
     } catch (error) {
         console.error('Error al obtener cliente:', error);
@@ -49,7 +53,7 @@ router.get('/:id', async (req, res) => {
 // POST /api/clientes - Crear cliente (solo admin)
 router.post('/', authorize('admin'), async (req, res) => {
     try {
-        const { empresa, persona_contacto, cargo, telefono, email, ubicacion, actividad_principal } = req.body;
+        const { empresa, cif, persona_contacto, cargo, telefono, email, ubicacion, actividad_principal, contactos } = req.body;
 
         if (!empresa || !persona_contacto) {
             return res.status(400).json({ error: 'Empresa y persona de contacto son requeridos' });
@@ -57,12 +61,27 @@ router.post('/', authorize('admin'), async (req, res) => {
 
         const db = await getDb();
         const result = db.prepare(`
-            INSERT INTO clientes (empresa, persona_contacto, cargo, telefono, email, ubicacion, actividad_principal)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        `).run(empresa, persona_contacto, cargo || null, telefono || null, email || null, ubicacion || null, actividad_principal || null);
+            INSERT INTO clientes (empresa, cif, persona_contacto, cargo, telefono, email, ubicacion, actividad_principal)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(empresa, cif || null, persona_contacto, cargo || null, telefono || null, email || null, ubicacion || null, actividad_principal || null);
+
+        const clienteId = result.lastInsertRowid;
+
+        // Insertar contactos adicionales si existen
+        if (contactos && contactos.length > 0) {
+            for (const c of contactos) {
+                if (c.nombre) {
+                    db.prepare(`
+                        INSERT INTO contactos_cliente (cliente_id, nombre, cargo, telefono, email, es_principal)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                    `).run(clienteId, c.nombre, c.cargo || null, c.telefono || null, c.email || null, c.es_principal ? 1 : 0);
+                }
+            }
+        }
 
         db.save();
-        const cliente = db.prepare('SELECT * FROM clientes WHERE id = ?').get(result.lastInsertRowid);
+        const cliente = db.prepare('SELECT * FROM clientes WHERE id = ?').get(clienteId);
+        cliente.contactos = db.prepare('SELECT * FROM contactos_cliente WHERE cliente_id = ?').all(clienteId);
         res.status(201).json(cliente);
     } catch (error) {
         console.error('Error al crear cliente:', error);
@@ -73,7 +92,7 @@ router.post('/', authorize('admin'), async (req, res) => {
 // PUT /api/clientes/:id - Actualizar cliente (solo admin)
 router.put('/:id', authorize('admin'), async (req, res) => {
     try {
-        const { empresa, persona_contacto, cargo, telefono, email, ubicacion, actividad_principal } = req.body;
+        const { empresa, cif, persona_contacto, cargo, telefono, email, ubicacion, actividad_principal, contactos } = req.body;
         const id = parseInt(req.params.id);
 
         const db = await getDb();
@@ -82,12 +101,12 @@ router.put('/:id', authorize('admin'), async (req, res) => {
             return res.status(404).json({ error: 'Cliente no encontrado' });
         }
 
-        // Obtener cliente actual
         const current = db.prepare('SELECT * FROM clientes WHERE id = ?').get(id);
 
         db.prepare(`
             UPDATE clientes SET
                 empresa = ?,
+                cif = ?,
                 persona_contacto = ?,
                 cargo = ?,
                 telefono = ?,
@@ -98,6 +117,7 @@ router.put('/:id', authorize('admin'), async (req, res) => {
             WHERE id = ?
         `).run(
             empresa || current.empresa,
+            cif !== undefined ? cif : current.cif,
             persona_contacto || current.persona_contacto,
             cargo !== undefined ? cargo : current.cargo,
             telefono !== undefined ? telefono : current.telefono,
@@ -107,8 +127,22 @@ router.put('/:id', authorize('admin'), async (req, res) => {
             id
         );
 
+        // Actualizar contactos si se proporcionan
+        if (contactos !== undefined) {
+            db.prepare('DELETE FROM contactos_cliente WHERE cliente_id = ?').run(id);
+            for (const c of contactos) {
+                if (c.nombre) {
+                    db.prepare(`
+                        INSERT INTO contactos_cliente (cliente_id, nombre, cargo, telefono, email, es_principal)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                    `).run(id, c.nombre, c.cargo || null, c.telefono || null, c.email || null, c.es_principal ? 1 : 0);
+                }
+            }
+        }
+
         db.save();
         const cliente = db.prepare('SELECT * FROM clientes WHERE id = ?').get(id);
+        cliente.contactos = db.prepare('SELECT * FROM contactos_cliente WHERE cliente_id = ?').all(id);
         res.json(cliente);
     } catch (error) {
         console.error('Error al actualizar cliente:', error);

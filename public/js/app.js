@@ -269,15 +269,23 @@ function openClienteForm(cliente = null) {
     const isEdit = !!cliente;
     elements.modalTitle.textContent = isEdit ? 'Editar Cliente' : 'Nuevo Cliente';
 
+    const contactosExistentes = cliente?.contactos || [];
+
     elements.modalBody.innerHTML = `
         <form id="cliente-form">
-            <div class="form-group">
-                <label>Empresa *</label>
-                <input type="text" name="empresa" value="${cliente?.empresa || ''}" required>
+            <div class="form-row">
+                <div class="form-group" style="flex: 2">
+                    <label>Empresa *</label>
+                    <input type="text" name="empresa" value="${cliente?.empresa || ''}" required>
+                </div>
+                <div class="form-group" style="flex: 1">
+                    <label>CIF</label>
+                    <input type="text" name="cif" value="${cliente?.cif || ''}" placeholder="B12345678">
+                </div>
             </div>
             <div class="form-row">
                 <div class="form-group">
-                    <label>Persona de Contacto *</label>
+                    <label>Persona de Contacto Principal *</label>
                     <input type="text" name="persona_contacto" value="${cliente?.persona_contacto || ''}" required>
                 </div>
                 <div class="form-group">
@@ -303,6 +311,22 @@ function openClienteForm(cliente = null) {
                 <label>Actividad Principal</label>
                 <textarea name="actividad_principal">${cliente?.actividad_principal || ''}</textarea>
             </div>
+            
+            <div class="form-section">
+                <h4>Contactos Adicionales <button type="button" class="btn btn-small btn-secondary" onclick="addContactoRow()">+ Añadir</button></h4>
+                <div id="contactos-container">
+                    ${contactosExistentes.map((c, i) => `
+                        <div class="contacto-row" style="display: flex; gap: 10px; margin-bottom: 10px; align-items: center;">
+                            <input type="text" placeholder="Nombre" value="${c.nombre || ''}" class="contacto-nombre" style="flex: 2">
+                            <input type="text" placeholder="Cargo" value="${c.cargo || ''}" class="contacto-cargo" style="flex: 1">
+                            <input type="tel" placeholder="Teléfono" value="${c.telefono || ''}" class="contacto-telefono" style="flex: 1">
+                            <input type="email" placeholder="Email" value="${c.email || ''}" class="contacto-email" style="flex: 1">
+                            <button type="button" class="btn btn-small btn-danger" onclick="this.parentElement.remove()">×</button>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+            
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
                 <button type="submit" class="btn btn-primary">${isEdit ? 'Guardar Cambios' : 'Crear Cliente'}</button>
@@ -314,6 +338,15 @@ function openClienteForm(cliente = null) {
         e.preventDefault();
         const formData = new FormData(e.target);
         const data = Object.fromEntries(formData);
+
+        // Recoger contactos adicionales
+        const contactoRows = document.querySelectorAll('.contacto-row');
+        data.contactos = Array.from(contactoRows).map(row => ({
+            nombre: row.querySelector('.contacto-nombre').value,
+            cargo: row.querySelector('.contacto-cargo').value,
+            telefono: row.querySelector('.contacto-telefono').value,
+            email: row.querySelector('.contacto-email').value
+        })).filter(c => c.nombre);
 
         try {
             if (isEdit) {
@@ -333,6 +366,23 @@ function openClienteForm(cliente = null) {
     openModal();
 }
 
+// Función para añadir fila de contacto
+function addContactoRow() {
+    const container = document.getElementById('contactos-container');
+    const row = document.createElement('div');
+    row.className = 'contacto-row';
+    row.style.cssText = 'display: flex; gap: 10px; margin-bottom: 10px; align-items: center;';
+    row.innerHTML = `
+        <input type="text" placeholder="Nombre" class="contacto-nombre" style="flex: 2">
+        <input type="text" placeholder="Cargo" class="contacto-cargo" style="flex: 1">
+        <input type="tel" placeholder="Teléfono" class="contacto-telefono" style="flex: 1">
+        <input type="email" placeholder="Email" class="contacto-email" style="flex: 1">
+        <button type="button" class="btn btn-small btn-danger" onclick="this.parentElement.remove()">×</button>
+    `;
+    container.appendChild(row);
+}
+
+
 async function viewCliente(id) {
     try {
         const cliente = await api(`/clientes/${id}`);
@@ -342,13 +392,25 @@ async function viewCliente(id) {
         elements.modalBody.innerHTML = `
             <div class="form-section">
                 <h4>Información del Cliente</h4>
-                <p><strong>Persona de Contacto:</strong> ${cliente.persona_contacto}</p>
+                <p><strong>CIF:</strong> ${cliente.cif || '-'}</p>
+                <p><strong>Persona de Contacto Principal:</strong> ${cliente.persona_contacto}</p>
                 <p><strong>Cargo:</strong> ${cliente.cargo || '-'}</p>
                 <p><strong>Email:</strong> ${cliente.email || '-'}</p>
                 <p><strong>Teléfono:</strong> ${cliente.telefono || '-'}</p>
                 <p><strong>Ubicación:</strong> ${cliente.ubicacion || '-'}</p>
                 <p><strong>Actividad:</strong> ${cliente.actividad_principal || '-'}</p>
             </div>
+            ${cliente.contactos && cliente.contactos.length > 0 ? `
+            <div class="form-section">
+                <h4>Contactos Adicionales (${cliente.contactos.length})</h4>
+                ${cliente.contactos.map(c => `
+                    <div style="background: rgba(255,255,255,0.1); padding: 10px; border-radius: 8px; margin-bottom: 8px;">
+                        <p><strong>${c.nombre}</strong> ${c.cargo ? `- ${c.cargo}` : ''}</p>
+                        <p style="font-size: 0.9em;">📧 ${c.email || '-'} | 📞 ${c.telefono || '-'}</p>
+                    </div>
+                `).join('')}
+            </div>
+            ` : ''}
             <div class="form-section">
                 <h4>Reuniones (${reuniones.length})</h4>
                 ${reuniones.length === 0 ? '<p>No hay reuniones registradas</p>' :
@@ -639,7 +701,7 @@ async function viewReunion(id) {
         elements.modalBody.innerHTML = `
             <div class="form-section">
                 <h4>Datos de la Reunión</h4>
-                <p><strong>Cliente:</strong> ${reunion.cliente?.empresa}</p>
+                <p><strong>Cliente:</strong> ${reunion.cliente?.empresa} ${reunion.cliente?.cif ? `(CIF: ${reunion.cliente.cif})` : ''}</p>
                 <p><strong>Fecha:</strong> ${formatDateTime(reunion.fecha_hora)}</p>
                 <p><strong>Lugar:</strong> ${reunion.lugar || '-'}</p>
                 <p><strong>Motivo:</strong> ${reunion.motivo || '-'}</p>
@@ -665,7 +727,28 @@ async function viewReunion(id) {
             </div>
             <div class="form-section">
                 <h4>Anexos (${(reunion.anexos || []).length})</h4>
-                ${(reunion.anexos || []).map(a => `<p>• ${a.nombre_archivo || a.descripcion} (${a.tipo})</p>`).join('') || '<p>Sin anexos</p>'}
+                <div id="anexos-list">
+                    ${(reunion.anexos || []).map(a => `
+                        <div class="anexo-item" style="display: flex; justify-content: space-between; align-items: center; padding: 8px; background: rgba(255,255,255,0.1); border-radius: 6px; margin-bottom: 6px;">
+                            <span>📎 ${a.nombre_archivo || a.descripcion} <small>(${a.tipo})</small></span>
+                            <button class="btn btn-small btn-danger" onclick="deleteAnexo(${id}, ${a.id})">Eliminar</button>
+                        </div>
+                    `).join('') || '<p>Sin anexos</p>'}
+                </div>
+                <div style="margin-top: 15px; padding: 15px; background: rgba(255,255,255,0.05); border-radius: 8px;">
+                    <h5 style="margin-bottom: 10px;">Subir nuevos anexos</h5>
+                    <div class="form-row" style="gap: 10px;">
+                        <div class="form-group">
+                            <label>Documentos (PDF, DOC, XLS...)</label>
+                            <input type="file" id="anexo-docs" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx">
+                        </div>
+                        <div class="form-group">
+                            <label>Fotografías</label>
+                            <input type="file" id="anexo-fotos" multiple accept="image/*">
+                        </div>
+                    </div>
+                    <button class="btn btn-primary" onclick="uploadAnexos(${id})" style="margin-top: 10px;">📤 Subir Anexos</button>
+                </div>
             </div>
             <div class="modal-footer">
                 <button class="btn btn-secondary" onclick="closeModal()">Cerrar</button>
@@ -679,6 +762,60 @@ async function viewReunion(id) {
         showToast('Error al cargar reunión', 'error');
     }
 }
+
+// Función para subir anexos
+async function uploadAnexos(reunionId) {
+    const docsInput = document.getElementById('anexo-docs');
+    const fotosInput = document.getElementById('anexo-fotos');
+
+    const formData = new FormData();
+
+    if (docsInput.files.length === 0 && fotosInput.files.length === 0) {
+        showToast('Selecciona al menos un archivo', 'warning');
+        return;
+    }
+
+    for (const file of docsInput.files) {
+        formData.append('documentos', file);
+    }
+    for (const file of fotosInput.files) {
+        formData.append('fotografias', file);
+    }
+
+    try {
+        const response = await fetch(`${API_BASE}/reuniones/${reunionId}/anexos`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${state.token}`
+            },
+            body: formData
+        });
+
+        if (!response.ok) {
+            const err = await response.json();
+            throw new Error(err.error || 'Error al subir anexos');
+        }
+
+        showToast('Anexos subidos correctamente', 'success');
+        viewReunion(reunionId); // Recargar la vista
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
+
+// Función para eliminar anexo
+async function deleteAnexo(reunionId, anexoId) {
+    if (!confirm('¿Estás seguro de eliminar este anexo?')) return;
+
+    try {
+        await api(`/reuniones/${reunionId}/anexos/${anexoId}`, { method: 'DELETE' });
+        showToast('Anexo eliminado', 'success');
+        viewReunion(reunionId); // Recargar la vista
+    } catch (error) {
+        showToast('Error al eliminar anexo', 'error');
+    }
+}
+
 
 async function editReunion(id) {
     try {

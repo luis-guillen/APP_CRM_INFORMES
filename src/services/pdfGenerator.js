@@ -279,9 +279,18 @@ class PDFGenerator {
     }
 
     /**
-     * Anexos
+     * Anexos - Solo se añade si hay contenido
      */
     addAnexos(doc, anexos) {
+        // Solo crear página de anexos si hay algún anexo
+        const documentos = (anexos || []).filter(a => a.tipo === 'documento');
+        const fotografias = (anexos || []).filter(a => a.tipo === 'fotografia');
+        const notas = (anexos || []).filter(a => a.tipo === 'nota');
+
+        if (documentos.length === 0 && fotografias.length === 0 && notas.length === 0) {
+            return; // No crear página si no hay anexos
+        }
+
         doc.addPage();
 
         this.addSectionHeader(doc, 'A. Anexos');
@@ -300,7 +309,6 @@ class PDFGenerator {
             .text('A.1. Documentación Recibida del Cliente');
         doc.moveDown(0.5);
 
-        const documentos = (anexos || []).filter(a => a.tipo === 'documento');
         if (documentos.length > 0) {
             for (const doc_anexo of documentos) {
                 doc.fontSize(10)
@@ -324,7 +332,6 @@ class PDFGenerator {
             .text('A.2. Fotografías de la Reunión');
         doc.moveDown(0.5);
 
-        const fotografias = (anexos || []).filter(a => a.tipo === 'fotografia');
         if (fotografias.length > 0) {
             doc.fontSize(10)
                 .fillColor(this.colors.text)
@@ -370,7 +377,6 @@ class PDFGenerator {
             .text('A.3. Notas Adicionales');
         doc.moveDown(0.5);
 
-        const notas = (anexos || []).filter(a => a.tipo === 'nota');
         if (notas.length > 0) {
             for (const nota of notas) {
                 doc.fontSize(10)
