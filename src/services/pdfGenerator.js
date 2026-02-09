@@ -327,16 +327,11 @@ class PDFGenerator {
         if (documentos.length > 0) {
             for (const doc_anexo of documentos) {
                 const isPdf = doc_anexo.nombre_archivo && doc_anexo.nombre_archivo.toLowerCase().endsWith('.pdf');
+                const label = isPdf ? '📥' : '📄';
                 doc.fontSize(10)
                     .fillColor(this.colors.text)
                     .font('Helvetica')
-                    .text(`• ${doc_anexo.nombre_archivo}${doc_anexo.descripcion ? ': ' + doc_anexo.descripcion : ''}`, { continued: isPdf });
-                if (isPdf && doc_anexo.ruta_archivo) {
-                    doc.fillColor(this.colors.accent)
-                        .font('Helvetica-Bold')
-                        .text('  [📥 Ver PDF adjunto]', { link: doc_anexo.ruta_archivo, continued: false });
-                    doc.fillColor(this.colors.text).font('Helvetica');
-                }
+                    .text(`• ${label} ${doc_anexo.nombre_archivo}${doc_anexo.descripcion ? ': ' + doc_anexo.descripcion : ''}${isPdf ? '  [Documento PDF adjunto]' : ''}`);
             }
         } else {
             doc.fontSize(10)
@@ -368,7 +363,7 @@ class PDFGenerator {
             const imgWidth = Math.floor((pageWidth - 20) / 2);
             const imgHeight = 180;
 
-            for (let i = 0; i < fotografias.length && i < 10; i++) {
+            for (let i = 0; i < fotografias.length; i++) {
                 try {
                     // Verificar si necesitamos nueva página
                     if (yPos + imgHeight + 40 > doc.page.height - this.margins.bottom) {
@@ -433,10 +428,12 @@ class PDFGenerator {
 
     /**
      * Añade el pie de página con información de confidencialidad
+     * IMPORTANT: Uses absolute positioning to avoid creating new pages
      */
     addFooter(doc, data) {
-        const pageCount = doc.bufferedPageRange().count;
-        const pages = doc.bufferedPageRange();
+        const range = doc.bufferedPageRange();
+        const pageCount = range.count;
+        const pageWidth = doc.page.width - this.margins.left - this.margins.right;
 
         for (let i = 0; i < pageCount; i++) {
             doc.switchToPage(i);
@@ -445,41 +442,56 @@ class PDFGenerator {
             if (i > 0) {
                 doc.fontSize(8)
                     .fillColor(this.colors.secondary)
-                    .text(
-                        `Ingeniería Industrial y Automatización`,
-                        this.margins.left,
-                        doc.page.height - 40,
-                        { width: 200, align: 'left' }
-                    )
-                    .text(
-                        `${i}`,
-                        doc.page.width / 2 - 10,
-                        doc.page.height - 40,
-                        { width: 20, align: 'center' }
-                    )
-                    .text(
-                        `Documento Comercial-Técnico`,
-                        doc.page.width - this.margins.right - 200,
-                        doc.page.height - 40,
-                        { width: 200, align: 'right' }
-                    );
+                    .font('Helvetica');
+
+                doc.text(
+                    'Ingeniería Industrial y Automatización',
+                    this.margins.left,
+                    doc.page.height - 40,
+                    { width: 200, align: 'left', lineBreak: false }
+                );
+                doc.text(
+                    `${i}`,
+                    0,
+                    doc.page.height - 40,
+                    { width: doc.page.width, align: 'center', lineBreak: false }
+                );
+                doc.text(
+                    'Documento Comercial-Técnico',
+                    doc.page.width - this.margins.right - 200,
+                    doc.page.height - 40,
+                    { width: 200, align: 'right', lineBreak: false }
+                );
             }
         }
 
-        // Última página - Aviso de confidencialidad
+        // Última página - Aviso de confidencialidad (posición absoluta)
         doc.switchToPage(pageCount - 1);
-        const pageWidth = doc.page.width - this.margins.left - this.margins.right;
 
-        doc.moveDown(3);
         doc.fontSize(9)
             .fillColor(this.colors.secondary)
             .font('Helvetica-Bold')
-            .text(`Documento Confidencial © ${new Date().getFullYear()} Reker Tech Solutions`, this.margins.left, doc.page.height - 80, { width: pageWidth, align: 'center' });
+            .text(
+                `Documento Confidencial © ${new Date().getFullYear()} Reker Tech Solutions`,
+                this.margins.left,
+                doc.page.height - 80,
+                { width: pageWidth, align: 'center', lineBreak: false }
+            );
 
         doc.fontSize(8)
             .font('Helvetica')
-            .text('Este documento es para uso interno y preparación de oferta para el cliente mencionado.', { width: pageWidth, align: 'center' })
-            .text('No debe ser distribuido sin autorización.', { width: pageWidth, align: 'center' });
+            .text(
+                'Este documento es para uso interno y preparación de oferta para el cliente mencionado.',
+                this.margins.left,
+                doc.page.height - 68,
+                { width: pageWidth, align: 'center', lineBreak: false }
+            )
+            .text(
+                'No debe ser distribuido sin autorización.',
+                this.margins.left,
+                doc.page.height - 56,
+                { width: pageWidth, align: 'center', lineBreak: false }
+            );
     }
 
     // === UTILIDADES ===

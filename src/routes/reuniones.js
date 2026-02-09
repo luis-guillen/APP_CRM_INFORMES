@@ -336,8 +336,8 @@ router.delete('/:id', authorize('admin'), async (req, res) => {
 
 // POST /api/reuniones/:id/anexos
 router.post('/:id/anexos', authorize('admin', 'tecnico'), upload.fields([
-    { name: 'documentos', maxCount: 10 },
-    { name: 'fotografias', maxCount: 20 }
+    { name: 'documentos', maxCount: 50 },
+    { name: 'fotografias', maxCount: 50 }
 ]), async (req, res) => {
     try {
         const db = await getDb();
