@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Sistema de Gestión de Reuniones - Reker Tech Solutions">
+    <title>Reker Tech Solutions - Sistema de Reuniones</title>
+    <link rel="stylesheet" href="/css/styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Pantalla de Login -->
+    <div id="login-screen" class="screen">
+        <div class="login-container">
+            <div class="login-logo">
+                <h1>Reker Tech Solutions</h1>
+                <p>Ingeniería Industrial y Automatización</p>
+            </div>
+            <form id="login-form" class="login-form">
+                <h2>Iniciar Sesión</h2>
+                <div class="form-group">
+                    <label for="login-email">Email</label>
+                    <input type="email" id="login-email" required placeholder="tu@email.com">
+                </div>
+                <div class="form-group">
+                    <label for="login-password">Contraseña</label>
+                    <input type="password" id="login-password" required placeholder="••••••••">
+                </div>
+                <button type="submit" class="btn btn-primary btn-full">Acceder</button>
+                <div id="login-error" class="error-message"></div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Aplicación Principal -->
+    <div id="app-screen" class="screen hidden">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2>Reker Tech</h2>
+                <span class="subtitle">Gestión de Reuniones</span>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="#" class="nav-item active" data-view="dashboard">
+                    <span class="icon">📊</span> Dashboard
+                </a>
+                <a href="#" class="nav-item" data-view="clientes">
+                    <span class="icon">🏢</span> Clientes
+                </a>
+                <a href="#" class="nav-item" data-view="reuniones">
+                    <span class="icon">📋</span> Reuniones
+                </a>
+                <a href="#" class="nav-item" data-view="informes">
+                    <span class="icon">📄</span> Informes
+                </a>
+                <a href="#" class="nav-item admin-only" data-view="usuarios">
+                    <span class="icon">👥</span> Usuarios
+                </a>
+            </nav>
+            <div class="sidebar-footer">
+                <div class="user-info">
+                    <span id="user-name">Usuario</span>
+                    <span id="user-role" class="badge">Rol</span>
+                </div>
+                <button id="logout-btn" class="btn btn-ghost btn-small">Cerrar Sesión</button>
+            </div>
+        </aside>
+
+        <!-- Contenido Principal -->
+        <main class="main-content">
+            <!-- Dashboard -->
+            <section id="view-dashboard" class="view active">
+                <header class="view-header">
+                    <h1>Dashboard</h1>
+                    <p>Resumen general del sistema</p>
+                </header>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon">🏢</div>
+                        <div class="stat-info">
+                            <span id="stat-clientes" class="stat-number">0</span>
+                            <span class="stat-label">Clientes</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">📋</div>
+                        <div class="stat-info">
+                            <span id="stat-reuniones" class="stat-number">0</span>
+                            <span class="stat-label">Reuniones</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">📄</div>
+                        <div class="stat-info">
+                            <span id="stat-informes" class="stat-number">0</span>
+                            <span class="stat-label">Informes</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">👥</div>
+                        <div class="stat-info">
+                            <span id="stat-usuarios" class="stat-number">0</span>
+                            <span class="stat-label">Usuarios</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="recent-section">
+                    <h3>Reuniones Recientes</h3>
+                    <div id="recent-reuniones" class="recent-list"></div>
+                </div>
+            </section>
+
+            <!-- Clientes -->
+            <section id="view-clientes" class="view">
+                <header class="view-header">
+                    <div>
+                        <h1>Clientes</h1>
+                        <p>Gestión de empresas cliente</p>
+                    </div>
+                    <button id="btn-nuevo-cliente" class="btn btn-primary admin-only">+ Nuevo Cliente</button>
+                </header>
+                <div class="search-bar">
+                    <input type="text" id="search-clientes" placeholder="Buscar clientes...">
+                </div>
+                <div id="clientes-list" class="data-grid"></div>
+            </section>
+
+            <!-- Reuniones -->
+            <section id="view-reuniones" class="view">
+                <header class="view-header">
+                    <div>
+                        <h1>Reuniones</h1>
+                        <p>Registro de reuniones con clientes</p>
+                    </div>
+                    <button id="btn-nueva-reunion" class="btn btn-primary">+ Nueva Reunión</button>
+                </header>
+                <div class="search-bar">
+                    <input type="text" id="search-reuniones" placeholder="Buscar reuniones...">
+                </div>
+                <div id="reuniones-list" class="data-grid"></div>
+            </section>
+
+            <!-- Informes -->
+            <section id="view-informes" class="view">
+                <header class="view-header">
+                    <div>
+                        <h1>Informes</h1>
+                        <p>Generación de informes profesionales</p>
+                    </div>
+                </header>
+                <div class="informes-section">
+                    <h3>Selecciona una reunión para generar informe</h3>
+                    <div id="reuniones-informes-list" class="data-list"></div>
+                </div>
+                <div class="informes-section">
+                    <h3>Informes Generados</h3>
+                    <div id="informes-generados-list" class="data-list"></div>
+                </div>
+            </section>
+
+            <!-- Usuarios -->
+            <section id="view-usuarios" class="view admin-only">
+                <header class="view-header">
+                    <div>
+                        <h1>Usuarios</h1>
+                        <p>Gestión de accesos al sistema</p>
+                    </div>
+                    <button id="btn-nuevo-usuario" class="btn btn-primary">+ Nuevo Usuario</button>
+                </header>
+                <div id="usuarios-list" class="data-grid"></div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Modal para Formularios -->
+    <div id="modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modal-title">Título</h2>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div id="modal-body" class="modal-body"></div>
+        </div>
+    </div>
+
+    <!-- Toast para notificaciones -->
+    <div id="toast" class="toast"></div>
+
+    <script src="/js/app.js"></script>
+</body>
+</html>

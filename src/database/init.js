@@ -1,0 +1,72 @@
+const { getDb } = require('./db');
+const fs = require('fs');
+const path = require('path');
+const bcrypt = require('bcryptjs');
+
+async function init() {
+    console.log('🔧 Inicializando base de datos Reker Tech Solutions...\n');
+
+    const db = await getDb();
+
+    // Leer y ejecutar el esquema SQL
+    const schemaPath = path.join(__dirname, 'schema.sql');
+    const schema = fs.readFileSync(schemaPath, 'utf8');
+
+    // Ejecutar cada statement del esquema
+    const statements = schema.split(';').filter(s => s.trim());
+    for (const statement of statements) {
+        if (statement.trim()) {
+            try {
+                db.exec(statement);
+            } catch (e) {
+                // Ignorar errores de "tabla ya existe"
+                if (!e.message.includes('already exists')) {
+                    console.error('Error ejecutando:', statement.substring(0, 50), e.message);
+                }
+            }
+        }
+    }
+
+    console.log('✅ Tablas creadas correctamente\n');
+
+    // Crear usuario administrador por defecto si no existe
+    const adminExists = db.prepare('SELECT id FROM usuarios WHERE email = ?').get('admin@reker.es');
+
+    if (!adminExists) {
+        const passwordHash = bcrypt.hashSync('admin123', 10);
+        db.prepare(`
+            INSERT INTO usuarios (nombre, email, password_hash, rol)
+            VALUES (?, ?, ?, ?)
+        `).run('Administrador', 'admin@reker.es', passwordHash, 'admin');
+
+        console.log('👤 Usuario administrador creado:');
+        console.log('   Email: admin@reker.es');
+        console.log('   Contraseña: admin123');
+        console.log('   ⚠️  Cambia la contraseña después del primer login\n');
+    } else {
+        console.log('👤 Usuario administrador ya existe\n');
+    }
+
+    // Crear directorios necesarios
+    const dirs = [
+        path.join(__dirname, '../../uploads'),
+        path.join(__dirname, '../../uploads/documentos'),
+        path.join(__dirname, '../../uploads/fotografias'),
+        path.join(__dirname, '../../reports')
+    ];
+
+    for (const dir of dirs) {
+        if (!fs.existsSync(dir)) {
+            fs.mkdirSync(dir, { recursive: true });
+            console.log(`📁 Directorio creado: ${path.basename(dir)}`);
+        }
+    }
+
+    // Guardar la base de datos
+    db.save();
+
+    console.log('\n✨ Base de datos inicializada correctamente');
+    console.log('   Ejecuta "npm start" para iniciar el servidor\n');
+}
+
+init().catch(console.error);
