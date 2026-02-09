@@ -45,7 +45,7 @@ class PDFGenerator {
 
                 // Generar contenido
                 this.addCoverPage(doc, data);
-                this.addTableOfContents(doc);
+                this.addTableOfContents(doc, data.anexos);
                 this.addSection1_FichaCliente(doc, data.cliente);
                 this.addSection2_DatosReunion(doc, data);
                 this.addSection3_ResumenEjecutivo(doc, data.resumen_ejecutivo);
@@ -122,7 +122,7 @@ class PDFGenerator {
     /**
      * Añade el índice
      */
-    addTableOfContents(doc) {
+    addTableOfContents(doc, anexos) {
         const pageWidth = doc.page.width - this.margins.left - this.margins.right;
 
         doc.fontSize(18)
@@ -132,17 +132,33 @@ class PDFGenerator {
 
         doc.moveDown(1.5);
 
+        // Solo incluir anexos en el índice si hay contenido
+        const documentos = (anexos || []).filter(a => a.tipo === 'documento');
+        const fotografias = (anexos || []).filter(a => a.tipo === 'fotografia');
+        const notas = (anexos || []).filter(a => a.tipo === 'nota');
+        const hasAnexos = documentos.length > 0 || fotografias.length > 0 || notas.length > 0;
+
         const items = [
             { num: '1', title: 'Ficha del Cliente', page: '3' },
             { num: '2', title: 'Datos de la Reunión', page: '3' },
             { num: '3', title: 'Resumen Ejecutivo', page: '3' },
             { num: '4', title: 'Necesidad Principal del Cliente', page: '3' },
-            { num: '5', title: 'Situación Actual', page: '4' },
-            { num: 'A', title: 'Anexos', page: '4' },
-            { num: 'A.1', title: 'Documentación Recibida del Cliente', page: '4', indent: true },
-            { num: 'A.2', title: 'Fotografías de la Reunión', page: '4', indent: true },
-            { num: 'A.3', title: 'Notas Adicionales', page: '4', indent: true }
+            { num: '5', title: 'Situación Actual', page: '4' }
         ];
+
+        // Solo añadir anexos al índice si hay contenido
+        if (hasAnexos) {
+            items.push({ num: 'A', title: 'Anexos', page: '4' });
+            if (documentos.length > 0) {
+                items.push({ num: 'A.1', title: 'Documentación Recibida del Cliente', page: '4', indent: true });
+            }
+            if (fotografias.length > 0) {
+                items.push({ num: 'A.2', title: 'Fotografías de la Reunión', page: '4', indent: true });
+            }
+            if (notas.length > 0) {
+                items.push({ num: 'A.3', title: 'Notas Adicionales', page: '4', indent: true });
+            }
+        }
 
         for (const item of items) {
             const indent = item.indent ? 20 : 0;

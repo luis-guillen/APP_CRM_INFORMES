@@ -601,6 +601,21 @@ async function openReunionForm(reunion = null) {
                 </div>
             </div>
 
+            <div class="form-section">
+                <h4>6. Anexos</h4>
+                <p style="font-size: 0.9em; color: #666; margin-bottom: 1rem;">Adjunta documentos y fotografías relacionados con la reunión.</p>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>📄 Documentos (PDF, DOC, XLS...)</label>
+                        <input type="file" name="documentos" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt">
+                    </div>
+                    <div class="form-group">
+                        <label>📷 Fotografías</label>
+                        <input type="file" name="fotografias" multiple accept="image/*">
+                    </div>
+                </div>
+            </div>
+
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
                 <button type="submit" class="btn btn-primary">${isEdit ? 'Guardar Cambios' : 'Crear Reunión'}</button>
@@ -679,13 +694,53 @@ async function saveReunion(form, reunionId = null) {
     };
 
     try {
+        let savedReunionId = reunionId;
+
         if (reunionId) {
             await api(`/reuniones/${reunionId}`, { method: 'PUT', body: JSON.stringify(data) });
             showToast('Reunión actualizada', 'success');
         } else {
-            await api('/reuniones', { method: 'POST', body: JSON.stringify(data) });
+            const result = await api('/reuniones', { method: 'POST', body: JSON.stringify(data) });
+            savedReunionId = result.id;
             showToast('Reunión creada', 'success');
         }
+
+        // Subir anexos si hay archivos seleccionados
+        const documentos = form.querySelector('input[name="documentos"]')?.files || [];
+        const fotografias = form.querySelector('input[name="fotografias"]')?.files || [];
+
+        if (documentos.length > 0 || fotografias.length > 0) {
+            const anexosFormData = new FormData();
+
+            for (const file of documentos) {
+                anexosFormData.append('documentos', file);
+            }
+            for (const file of fotografias) {
+                anexosFormData.append('fotografias', file);
+            }
+
+            try {
+                const response = await fetch(`${App.apiBase}/reuniones/${savedReunionId}/anexos`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${App.token}`
+                    },
+                    body: anexosFormData
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    console.error('Error subiendo anexos:', error);
+                    showToast('Reunión guardada, pero hubo un error al subir los anexos', 'warning');
+                } else {
+                    showToast('Anexos subidos correctamente', 'success');
+                }
+            } catch (e) {
+                console.error('Error subiendo anexos:', e);
+                showToast('Reunión guardada, pero hubo un error al subir los anexos', 'warning');
+            }
+        }
+
         closeModal();
         loadReuniones();
     } catch (error) {
