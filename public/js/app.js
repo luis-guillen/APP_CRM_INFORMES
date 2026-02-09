@@ -720,7 +720,7 @@ async function saveReunion(form, reunionId = null) {
             }
 
             try {
-                const response = await fetch(`${App.apiBase}/reuniones/${savedReunionId}/anexos`, {
+                const response = await fetch(`/api/reuniones/${savedReunionId}/anexos`, {
                     method: 'POST',
                     headers: {
                         'Authorization': `Bearer ${App.token}`

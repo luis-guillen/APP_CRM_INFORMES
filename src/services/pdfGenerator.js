@@ -291,7 +291,8 @@ class PDFGenerator {
         ];
 
         this.addTable(doc, tableData);
-        doc.moveDown(1.5);
+        this.addTable(doc, tableData);
+        // doc.moveDown(1.5); // Comentado para evitar página en blanco al final si está al límite
     }
 
     /**
@@ -303,7 +304,7 @@ class PDFGenerator {
         const fotografias = (anexos || []).filter(a => a.tipo === 'fotografia');
         const notas = (anexos || []).filter(a => a.tipo === 'nota');
 
-        if (documentos.length === 0 && fotografias.length === 0 && notas.length === 0) {
+        if (!documentos.length && !fotografias.length && !notas.length) {
             return; // No crear página si no hay anexos
         }
 
