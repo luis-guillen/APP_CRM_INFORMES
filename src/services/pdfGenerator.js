@@ -291,8 +291,6 @@ class PDFGenerator {
         ];
 
         this.addTable(doc, tableData);
-        this.addTable(doc, tableData);
-        // doc.moveDown(1.5); // Comentado para evitar página en blanco al final si está al límite
     }
 
     /**
@@ -328,10 +326,17 @@ class PDFGenerator {
 
         if (documentos.length > 0) {
             for (const doc_anexo of documentos) {
+                const isPdf = doc_anexo.nombre_archivo && doc_anexo.nombre_archivo.toLowerCase().endsWith('.pdf');
                 doc.fontSize(10)
                     .fillColor(this.colors.text)
                     .font('Helvetica')
-                    .text(`• ${doc_anexo.nombre_archivo}${doc_anexo.descripcion ? ': ' + doc_anexo.descripcion : ''}`);
+                    .text(`• ${doc_anexo.nombre_archivo}${doc_anexo.descripcion ? ': ' + doc_anexo.descripcion : ''}`, { continued: isPdf });
+                if (isPdf && doc_anexo.ruta_archivo) {
+                    doc.fillColor(this.colors.accent)
+                        .font('Helvetica-Bold')
+                        .text('  [📥 Ver PDF adjunto]', { link: doc_anexo.ruta_archivo, continued: false });
+                    doc.fillColor(this.colors.text).font('Helvetica');
+                }
             }
         } else {
             doc.fontSize(10)
@@ -356,25 +361,42 @@ class PDFGenerator {
                 .text('Fotografías tomadas durante la visita o reunión con el cliente:');
             doc.moveDown(0.5);
 
-            // Intentar incluir las imágenes
+            // Intentar incluir las imágenes (más grandes, 2 columnas)
             let xPos = this.margins.left;
             let yPos = doc.y;
-            const imgWidth = 150;
-            const imgHeight = 100;
+            const pageWidth = doc.page.width - this.margins.left - this.margins.right;
+            const imgWidth = Math.floor((pageWidth - 20) / 2);
+            const imgHeight = 180;
 
-            for (let i = 0; i < fotografias.length && i < 6; i++) {
+            for (let i = 0; i < fotografias.length && i < 10; i++) {
                 try {
+                    // Verificar si necesitamos nueva página
+                    if (yPos + imgHeight + 40 > doc.page.height - this.margins.bottom) {
+                        doc.addPage();
+                        yPos = this.margins.top;
+                        xPos = this.margins.left;
+                    }
+
                     if (fs.existsSync(fotografias[i].ruta_archivo)) {
-                        doc.image(fotografias[i].ruta_archivo, xPos, yPos, { width: imgWidth, height: imgHeight, fit: [imgWidth, imgHeight] });
-                        xPos += imgWidth + 20;
-                        if ((i + 1) % 3 === 0) {
+                        doc.image(fotografias[i].ruta_archivo, xPos, yPos, { fit: [imgWidth, imgHeight] });
+
+                        // Nombre bajo la imagen
+                        doc.fontSize(8)
+                            .fillColor(this.colors.secondary)
+                            .font('Helvetica-Oblique')
+                            .text(fotografias[i].nombre_archivo || `Foto ${i + 1}`, xPos, yPos + imgHeight + 2, { width: imgWidth, align: 'center' });
+
+                        if ((i + 1) % 2 === 0) {
                             xPos = this.margins.left;
-                            yPos += imgHeight + 20;
+                            yPos += imgHeight + 30;
+                        } else {
+                            xPos += imgWidth + 20;
                         }
                     }
                 } catch (e) {
                     // Si falla la imagen, solo listar
-                    doc.text(`• ${fotografias[i].nombre_archivo}`);
+                    doc.fontSize(10).fillColor(this.colors.text).font('Helvetica');
+                    doc.text(`• ${fotografias[i].nombre_archivo}`, this.margins.left, doc.y);
                 }
             }
             doc.y = yPos + imgHeight + 30;

@@ -135,7 +135,8 @@ router.post('/', authorize('admin', 'tecnico'), async (req, res) => {
             asistentes,
             resumen_ejecutivo,
             necesidad_cliente,
-            situacion_actual
+            situacion_actual,
+            notas_adicionales
         } = req.body;
 
         if (!cliente_id || !fecha_hora) {
@@ -186,6 +187,11 @@ router.post('/', authorize('admin', 'tecnico'), async (req, res) => {
             );
         }
 
+        // Insertar notas adicionales
+        if (notas_adicionales && notas_adicionales.trim()) {
+            db.prepare(`INSERT INTO anexos (reunion_id, tipo, descripcion) VALUES (?, 'nota', ?)`).run(reunionId, notas_adicionales.trim());
+        }
+
         db.save();
         const reunion = db.prepare('SELECT * FROM reuniones WHERE id = ?').get(reunionId);
         res.status(201).json(reunion);
@@ -206,7 +212,8 @@ router.put('/:id', authorize('admin', 'tecnico'), async (req, res) => {
             asistentes,
             resumen_ejecutivo,
             necesidad_cliente,
-            situacion_actual
+            situacion_actual,
+            notas_adicionales
         } = req.body;
 
         const id = parseInt(req.params.id);
@@ -279,6 +286,15 @@ router.put('/:id', authorize('admin', 'tecnico'), async (req, res) => {
                 db.prepare('INSERT INTO situacion_actual (reunion_id, proceso_actual, equipos_instalados, limitaciones_problemas) VALUES (?, ?, ?, ?)').run(
                     id, situacion_actual.proceso_actual || null, situacion_actual.equipos_instalados || null, situacion_actual.limitaciones_problemas || null
                 );
+            }
+        }
+
+        // Actualizar notas adicionales
+        if (notas_adicionales !== undefined) {
+            // Eliminar notas anteriores y añadir nueva
+            db.prepare("DELETE FROM anexos WHERE reunion_id = ? AND tipo = 'nota'").run(id);
+            if (notas_adicionales && notas_adicionales.trim()) {
+                db.prepare(`INSERT INTO anexos (reunion_id, tipo, descripcion) VALUES (?, 'nota', ?)`).run(id, notas_adicionales.trim());
             }
         }
 

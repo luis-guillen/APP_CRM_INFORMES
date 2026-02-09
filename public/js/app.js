@@ -524,6 +524,15 @@ async function openReunionForm(reunion = null) {
 
     const asistentes = reunion?.asistentes || [];
 
+    // Extraer notas adicionales de los anexos existentes
+    const notasExistentes = (reunion?.anexos || [])
+        .filter(a => a.tipo === 'nota')
+        .map(a => a.descripcion)
+        .join('\n');
+    if (reunion) {
+        reunion.notas_adicionales = notasExistentes;
+    }
+
     elements.modalBody.innerHTML = `
         <form id="reunion-form">
             <div class="form-section">
@@ -602,7 +611,15 @@ async function openReunionForm(reunion = null) {
             </div>
 
             <div class="form-section">
-                <h4>6. Anexos</h4>
+                <h4>6. Notas Adicionales</h4>
+                <div class="form-group">
+                    <label>Notas o comentarios adicionales sobre la reunión</label>
+                    <textarea name="notas_adicionales" placeholder="Añade cualquier nota, observación o comentario relevante que no encaje en las secciones anteriores...">${reunion?.notas_adicionales || ''}</textarea>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <h4>7. Anexos</h4>
                 <p style="font-size: 0.9em; color: #666; margin-bottom: 1rem;">Adjunta documentos y fotografías relacionados con la reunión.</p>
                 <div class="form-row">
                     <div class="form-group">
@@ -690,7 +707,8 @@ async function saveReunion(form, reunionId = null) {
             proceso_actual: formData.get('proceso_actual'),
             equipos_instalados: formData.get('equipos_instalados'),
             limitaciones_problemas: formData.get('limitaciones_problemas')
-        }
+        },
+        notas_adicionales: formData.get('notas_adicionales')
     };
 
     try {
@@ -1055,9 +1073,8 @@ async function openUsuarioForm(usuario = null) {
                 <div class="form-group">
                     <label>Rol</label>
                     <select name="rol">
-                        <option value="tecnico" ${usuario?.rol === 'tecnico' ? 'selected' : ''}>Técnico</option>
+                        <option value="tecnico" ${usuario?.rol === 'tecnico' ? 'selected' : ''}>Usuario</option>
                         <option value="admin" ${usuario?.rol === 'admin' ? 'selected' : ''}>Administrador</option>
-                        <option value="cliente" ${usuario?.rol === 'cliente' ? 'selected' : ''}>Cliente</option>
                     </select>
                 </div>
                 <div class="form-group">
