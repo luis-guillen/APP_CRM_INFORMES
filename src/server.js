@@ -86,13 +86,18 @@ async function initializeDatabase(db) {
     console.log('✅ Base de datos inicializada');
 }
 
+// Ruta de salud para Render (Health Check)
+app.get('/health', (req, res) => {
+    res.status(200).send('OK');
+});
+
 // Iniciar servidor
 async function start() {
     try {
         const db = await getDb();
         await initializeDatabase(db);
 
-        app.listen(PORT, () => {
+        app.listen(PORT, '0.0.0.0', () => {
             console.log(`
 ╔═══════════════════════════════════════════════════╗
 ║  Reker Tech Solutions - Sistema de Reuniones      ║
