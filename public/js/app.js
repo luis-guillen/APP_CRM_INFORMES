@@ -34,6 +34,7 @@ const elements = {
 // ================================
 // API Helper
 // ================================
+const API_BASE = '/api';
 async function api(endpoint, options = {}) {
     const headers = {
         'Content-Type': 'application/json',
