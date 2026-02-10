@@ -112,6 +112,18 @@ async function initializeDatabase(db) {
     for (const m of migrations) {
         try { db.exec(m); } catch (e) { /* columna ya existe */ }
     }
+
+    // Crear tabla favoritos si no existe
+    db.exec(`CREATE TABLE IF NOT EXISTS favoritos (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        usuario_id INTEGER NOT NULL,
+        tipo TEXT CHECK(tipo IN ('cliente', 'reunion')) NOT NULL,
+        recurso_id INTEGER NOT NULL,
+        creado_en DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+        UNIQUE(usuario_id, tipo, recurso_id)
+    )`);
+
     db.save();
 
     console.log('✅ Base de datos inicializada');

@@ -6,7 +6,7 @@ const { authenticate, authorize } = require('../middleware/auth');
 // Aplicar autenticación a todas las rutas
 router.use(authenticate);
 
-// GET /api/clientes - Listar todos los clientes
+// GET /api/clientes - Listar clientes del usuario
 router.get('/', async (req, res) => {
     try {
         const db = await getDb();
@@ -16,7 +16,26 @@ router.get('/', async (req, res) => {
             return res.json([cliente].filter(Boolean));
         }
 
-        const clientes = db.prepare('SELECT * FROM clientes ORDER BY empresa ASC').all();
+        // Admin ve todo, técnico ve solo lo suyo + favoritos
+        if (req.user.rol === 'admin') {
+            const clientes = db.prepare(`
+                SELECT c.*, u.email as creador_email
+                FROM clientes c
+                LEFT JOIN usuarios u ON c.creado_por = u.id
+                ORDER BY c.empresa ASC
+            `).all();
+            return res.json(clientes);
+        }
+
+        // Técnico: sus clientes + favoritos
+        const clientes = db.prepare(`
+            SELECT c.*, u.email as creador_email
+            FROM clientes c
+            LEFT JOIN usuarios u ON c.creado_por = u.id
+            WHERE c.creado_por = ?
+            OR c.id IN (SELECT recurso_id FROM favoritos WHERE tipo = 'cliente' AND usuario_id = ?)
+            ORDER BY c.empresa ASC
+        `).all(req.user.id, req.user.id);
         res.json(clientes);
     } catch (error) {
         console.error('Error al listar clientes:', error);

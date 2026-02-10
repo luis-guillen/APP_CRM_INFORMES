@@ -134,3 +134,16 @@ CREATE TABLE IF NOT EXISTS compartidos (
 
 CREATE INDEX IF NOT EXISTS idx_compartidos_con ON compartidos(compartido_con);
 CREATE INDEX IF NOT EXISTS idx_compartidos_por ON compartidos(compartido_por);
+
+-- Tabla de Favoritos (items añadidos desde perfiles públicos)
+CREATE TABLE IF NOT EXISTS favoritos (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    usuario_id INTEGER NOT NULL,
+    tipo TEXT CHECK(tipo IN ('cliente', 'reunion')) NOT NULL,
+    recurso_id INTEGER NOT NULL,
+    creado_en DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+    UNIQUE(usuario_id, tipo, recurso_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_favoritos_usuario ON favoritos(usuario_id);

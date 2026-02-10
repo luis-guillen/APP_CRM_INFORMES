@@ -56,21 +56,32 @@ router.get('/', async (req, res) => {
 
         if (req.user.rol === 'cliente' && req.user.cliente_id) {
             reuniones = db.prepare(`
-                SELECT r.*, c.empresa as cliente_empresa, u.nombre as creado_por_nombre
+                SELECT r.*, c.empresa as cliente_empresa, u.nombre as creado_por_nombre, u.email as creador_email
                 FROM reuniones r
                 JOIN clientes c ON r.cliente_id = c.id
                 LEFT JOIN usuarios u ON r.creado_por = u.id
                 WHERE r.cliente_id = ?
                 ORDER BY r.fecha_hora DESC
             `).all(req.user.cliente_id);
-        } else {
+        } else if (req.user.rol === 'admin') {
             reuniones = db.prepare(`
-                SELECT r.*, c.empresa as cliente_empresa, u.nombre as creado_por_nombre
+                SELECT r.*, c.empresa as cliente_empresa, u.nombre as creado_por_nombre, u.email as creador_email
                 FROM reuniones r
                 JOIN clientes c ON r.cliente_id = c.id
                 LEFT JOIN usuarios u ON r.creado_por = u.id
                 ORDER BY r.fecha_hora DESC
             `).all();
+        } else {
+            // Técnico: sus reuniones + favoritos
+            reuniones = db.prepare(`
+                SELECT r.*, c.empresa as cliente_empresa, u.nombre as creado_por_nombre, u.email as creador_email
+                FROM reuniones r
+                JOIN clientes c ON r.cliente_id = c.id
+                LEFT JOIN usuarios u ON r.creado_por = u.id
+                WHERE r.creado_por = ?
+                OR r.id IN (SELECT recurso_id FROM favoritos WHERE tipo = 'reunion' AND usuario_id = ?)
+                ORDER BY r.fecha_hora DESC
+            `).all(req.user.id, req.user.id);
         }
 
         res.json(reuniones);

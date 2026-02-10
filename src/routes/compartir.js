@@ -315,4 +315,63 @@ router.get('/perfil/:username/reunion/:id/pdf', async (req, res) => {
     }
 });
 
+// ================================
+// Favoritos (añadir items públicos a tu lista)
+// ================================
+
+// POST /api/compartir/favorito - Añadir item público a favoritos
+router.post('/favorito', authenticate, async (req, res) => {
+    try {
+        const db = await getDb();
+        const { tipo, recurso_id } = req.body;
+
+        if (!tipo || !recurso_id || !['cliente', 'reunion'].includes(tipo)) {
+            return res.status(400).json({ error: 'tipo y recurso_id requeridos' });
+        }
+
+        // Verificar que el recurso existe y es público
+        const table = tipo === 'cliente' ? 'clientes' : 'reuniones';
+        const recurso = db.prepare(`SELECT id, publico, creado_por FROM ${table} WHERE id = ?`).get(recurso_id);
+
+        if (!recurso) {
+            return res.status(404).json({ error: 'Recurso no encontrado' });
+        }
+
+        if (!recurso.publico) {
+            return res.status(403).json({ error: 'El recurso no es público' });
+        }
+
+        if (recurso.creado_por === req.user.id) {
+            return res.status(400).json({ error: 'No puedes añadir tus propios items' });
+        }
+
+        db.prepare(`
+            INSERT OR IGNORE INTO favoritos (usuario_id, tipo, recurso_id)
+            VALUES (?, ?, ?)
+        `).run(req.user.id, tipo, recurso_id);
+
+        res.json({ message: 'Añadido a favoritos' });
+    } catch (error) {
+        console.error('Error al añadir favorito:', error);
+        res.status(500).json({ error: 'Error al añadir favorito' });
+    }
+});
+
+// DELETE /api/compartir/favorito/:tipo/:recursoId - Quitar de favoritos
+router.delete('/favorito/:tipo/:recursoId', authenticate, async (req, res) => {
+    try {
+        const db = await getDb();
+        const { tipo, recursoId } = req.params;
+
+        db.prepare(`
+            DELETE FROM favoritos WHERE usuario_id = ? AND tipo = ? AND recurso_id = ?
+        `).run(req.user.id, tipo, parseInt(recursoId));
+
+        res.json({ message: 'Eliminado de favoritos' });
+    } catch (error) {
+        console.error('Error al eliminar favorito:', error);
+        res.status(500).json({ error: 'Error al eliminar favorito' });
+    }
+});
+
 module.exports = router;

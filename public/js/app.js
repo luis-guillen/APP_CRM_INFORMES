@@ -244,16 +244,18 @@ function renderClientes(clientes) {
         return;
     }
 
-    container.innerHTML = clientes.map(c => `
+    container.innerHTML = clientes.map(c => {
+        const esMio = c.creado_por === App.user?.id;
+        const creadorLabel = (!esMio && c.creador_email) ? `<span class="badge badge-shared" style="font-size:9px;margin-left:6px">📧 ${c.creador_email}</span>` : '';
+        return `
         <div class="data-card ${c.publico ? 'public-card' : ''}">
             <div class="card-header">
-                <h3>${c.empresa} ${c.publico ? '<span class="badge badge-public">🌐</span>' : ''}</h3>
+                <h3>${c.empresa} ${creadorLabel} ${c.publico ? '<span class="badge badge-public">🌐</span>' : ''}</h3>
                 <div class="card-actions">
-                    <button class="btn btn-ghost btn-small" onclick="toggleVisibilidad('clientes', ${c.id}, ${c.publico ? 0 : 1})" title="${c.publico ? 'Hacer privado' : 'Hacer público'}">${c.publico ? '🔒' : '🌐'}</button>
-                    <button class="btn btn-ghost btn-small" onclick="openCompartirDialog('cliente', ${c.id}, '${c.empresa.replace(/'/g, "\\\\'")}')" title="Compartir">🔗</button>
+                    ${esMio ? `<button class="btn btn-ghost btn-small" onclick="toggleVisibilidad('clientes', ${c.id}, ${c.publico ? 0 : 1})" title="${c.publico ? 'Hacer privado' : 'Hacer público'}">${c.publico ? '🔒' : '🌐'}</button>` : ''}
                     <button class="btn btn-ghost btn-small" onclick="viewCliente(${c.id})">Ver</button>
-                    <button class="btn btn-ghost btn-small admin-only" onclick="editCliente(${c.id})">Editar</button>
-                    <button class="btn btn-ghost btn-small btn-danger admin-only" onclick="deleteCliente(${c.id})">Eliminar</button>
+                    ${esMio ? `<button class="btn btn-ghost btn-small" onclick="editCliente(${c.id})">Editar</button>` : ''}
+                    ${esMio ? `<button class="btn btn-ghost btn-small btn-danger" onclick="deleteCliente(${c.id})">Eliminar</button>` : `<button class="btn btn-ghost btn-small btn-danger" onclick="removeFavorito('cliente', ${c.id})">✕</button>`}
                 </div>
             </div>
             <div class="card-body">
@@ -263,7 +265,7 @@ function renderClientes(clientes) {
                 <p><strong>Ubicación:</strong> ${c.ubicacion || '-'}</p>
             </div>
         </div>
-    `).join('');
+    `}).join('');
     updateAdminVisibility();
 }
 
@@ -489,16 +491,18 @@ function renderReuniones(reuniones) {
         return;
     }
 
-    container.innerHTML = reuniones.map(r => `
+    container.innerHTML = reuniones.map(r => {
+        const esMio = r.creado_por === App.user?.id;
+        const creadorLabel = (!esMio && r.creador_email) ? `<span class="badge badge-shared" style="font-size:9px;margin-left:6px">📧 ${r.creador_email}</span>` : '';
+        return `
         <div class="data-card ${r.publico ? 'public-card' : ''}">
             <div class="card-header">
-                <h3>${r.codigo_referencia} ${r.publico ? '<span class="badge badge-public">🌐</span>' : ''}</h3>
+                <h3>${r.codigo_referencia} ${creadorLabel} ${r.publico ? '<span class="badge badge-public">🌐</span>' : ''}</h3>
                 <div class="card-actions">
-                    <button class="btn btn-ghost btn-small" onclick="toggleVisibilidad('reuniones', ${r.id}, ${r.publico ? 0 : 1})" title="${r.publico ? 'Hacer privado' : 'Hacer público'}">${r.publico ? '🔒' : '🌐'}</button>
-                    <button class="btn btn-ghost btn-small" onclick="openCompartirDialog('reunion', ${r.id}, '${r.codigo_referencia.replace(/'/g, "\\\\'")}')" title="Compartir">🔗</button>
+                    ${esMio ? `<button class="btn btn-ghost btn-small" onclick="toggleVisibilidad('reuniones', ${r.id}, ${r.publico ? 0 : 1})" title="${r.publico ? 'Hacer privado' : 'Hacer público'}">${r.publico ? '🔒' : '🌐'}</button>` : ''}
                     <button class="btn btn-ghost btn-small" onclick="viewReunion(${r.id})">Ver</button>
-                    <button class="btn btn-ghost btn-small" onclick="editReunion(${r.id})">Editar</button>
-                    <button class="btn btn-ghost btn-small btn-danger" onclick="deleteReunion(${r.id})">Eliminar</button>
+                    ${esMio ? `<button class="btn btn-ghost btn-small" onclick="editReunion(${r.id})">Editar</button>` : ''}
+                    ${esMio ? `<button class="btn btn-ghost btn-small btn-danger" onclick="deleteReunion(${r.id})">Eliminar</button>` : `<button class="btn btn-ghost btn-small btn-danger" onclick="removeFavorito('reunion', ${r.id})">✕</button>`}
                 </div>
             </div>
             <div class="card-body">
@@ -508,7 +512,7 @@ function renderReuniones(reuniones) {
                 <p><strong>Motivo:</strong> ${r.motivo || '-'}</p>
             </div>
         </div>
-    `).join('');
+    `}).join('');
 }
 
 async function openReunionForm(reunion = null) {
@@ -1331,9 +1335,12 @@ async function viewPerfilPublico(username) {
             html += '<div class="perfil-items">';
             for (const c of perfil.clientes) {
                 html += `
-                    <div class="perfil-item">
-                        <strong>${c.empresa}</strong> - ${c.persona_contacto}
-                        ${c.ubicacion ? `<br><small>📍 ${c.ubicacion}</small>` : ''}
+                    <div class="perfil-item perfil-item-reunion">
+                        <div class="perfil-item-info">
+                            <strong>${c.empresa}</strong> - ${c.persona_contacto}
+                            ${c.ubicacion ? `<br><small>📍 ${c.ubicacion}</small>` : ''}
+                        </div>
+                        <button class="btn btn-small btn-success" onclick="addFavorito('cliente', ${c.id})">➕ Añadir</button>
                     </div>
                 `;
             }
@@ -1353,7 +1360,10 @@ async function viewPerfilPublico(username) {
                             <strong>${r.codigo_referencia}</strong> - ${r.cliente_empresa}
                             <br><small>📅 ${formatDateTime(r.fecha_hora)} ${r.lugar ? '| 📍 ' + r.lugar : ''}</small>
                         </div>
-                        <a href="${API_BASE}/compartir/perfil/${username}/reunion/${r.id}/pdf" class="btn btn-small btn-primary" target="_blank">📄 PDF</a>
+                        <div class="perfil-item-actions">
+                            <a href="${API_BASE}/compartir/perfil/${username}/reunion/${r.id}/pdf" class="btn btn-small btn-primary" target="_blank">📄 PDF</a>
+                            <button class="btn btn-small btn-success" onclick="addFavorito('reunion', ${r.id})">➕ Añadir</button>
+                        </div>
                     </div>
                 `;
             }
@@ -1479,6 +1489,32 @@ async function toggleVisibilidad(tipo, id, publico) {
         else loadReuniones();
     } catch (error) {
         showToast('Error al cambiar visibilidad', 'error');
+    }
+}
+
+async function addFavorito(tipo, recursoId) {
+    try {
+        await api('/compartir/favorito', {
+            method: 'POST',
+            body: JSON.stringify({ tipo, recurso_id: recursoId })
+        });
+        showToast('✅ Añadido a tu lista', 'success');
+    } catch (error) {
+        showToast(error.message || 'Error al añadir', 'error');
+    }
+}
+
+async function removeFavorito(tipo, recursoId) {
+    if (!confirm('¿Quitar este item de tu lista?')) return;
+    try {
+        await api(`/compartir/favorito/${tipo}/${recursoId}`, {
+            method: 'DELETE'
+        });
+        showToast('Eliminado de tu lista', 'success');
+        if (tipo === 'cliente') loadClientes();
+        else loadReuniones();
+    } catch (error) {
+        showToast('Error al eliminar', 'error');
     }
 }
 
