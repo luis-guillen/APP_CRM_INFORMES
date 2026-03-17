@@ -301,7 +301,7 @@ router.get('/perfil/:username/reunion/:id/pdf', async (req, res) => {
             fs.mkdirSync(reportsDir, { recursive: true });
         }
 
-        const filename = `Informe_${data.codigo_referencia}_${Date.now()}.pdf`;
+        const filename = `Informe_${data.codigo_referencia}_${username}.pdf`;
         const outputPath = path.join(reportsDir, filename);
 
         const baseUrl = `${req.protocol}://${req.get('host')}`;

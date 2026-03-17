@@ -43,6 +43,11 @@ npm start
 └── uploads/         # Archivos adjuntos
 ```
 
+
+## Documentación Técnica
+
+Para un análisis detallado de la arquitectura, base de datos y flujos del sistema, consulta el [Walkthrough Técnico](WALKTHROUGH.md).
+
 ## Licencia
 
 Privado - Reker Tech Solutions © 2026

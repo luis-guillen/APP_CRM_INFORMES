@@ -63,7 +63,8 @@ router.get('/:reunionId/pdf', async (req, res) => {
             return res.status(403).json({ error: 'No tienes acceso a esta reunión' });
         }
 
-        const filename = `Informe_${data.codigo_referencia}_${Date.now()}.pdf`;
+        const userName = (req.user.nombre || 'usuario').replace(/[^a-zA-Z0-9]/g, '_');
+        const filename = `Informe_${data.codigo_referencia}_${userName}.pdf`;
         const outputPath = path.join(reportsDir, filename);
 
         const baseUrl = `${req.protocol}://${req.get('host')}`;
@@ -90,7 +91,8 @@ router.get('/:reunionId/docx', async (req, res) => {
             return res.status(403).json({ error: 'No tienes acceso a esta reunión' });
         }
 
-        const filename = `Informe_${data.codigo_referencia}_${Date.now()}.docx`;
+        const userName = (req.user.nombre || 'usuario').replace(/[^a-zA-Z0-9]/g, '_');
+        const filename = `Informe_${data.codigo_referencia}_${userName}.docx`;
         const outputPath = path.join(reportsDir, filename);
 
         const generator = new DocxGenerator();
