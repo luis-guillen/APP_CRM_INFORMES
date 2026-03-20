@@ -1,0 +1,30 @@
+services:
+  crm:
+    build: 
+      context: .
+    image: reker_crm_informes:latest
+    container_name: reker_crm
+    restart: unless-stopped
+    ports:
+      - "5001:5001"
+    environment:
+      - NODE_ENV=production
+      - PORT=5001
+      - REKER_DB_PATH=/app/data/reker.db
+      - JWT_SECRET=${JWT_SECRET:-cambiame_urgentemente_en_produccion_1234}
+      - DEFAULT_ADMIN_PASSWORD=${DEFAULT_ADMIN_PASSWORD:-AdminReker2026!}
+    volumes:
+      - reker_data:/app/data
+      - reker_uploads:/app/uploads
+      - reker_reports:/app/reports
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:5001/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  reker_data:
+  reker_uploads:
+  reker_reports:

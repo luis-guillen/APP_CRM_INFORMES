@@ -7,7 +7,8 @@
     "start": "node src/server.js",
     "build": "node src/database/init.js",
     "dev": "nodemon src/server.js",
-    "init-db": "node src/database/init.js"
+    "init-db": "node src/database/init.js",
+    "test": "node --test --test-concurrency=1 tests/**/*.test.js"
   },
   "keywords": [
     "reuniones",
@@ -18,7 +19,6 @@
   "license": "UNLICENSED",
   "dependencies": {
     "bcryptjs": "^2.4.3",
-    "sql.js": "^1.10.3",
     "cors": "^2.8.5",
     "docx": "^8.5.0",
     "express": "^4.18.2",

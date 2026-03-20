@@ -1,18 +1,29 @@
-const initSqlJs = require('sql.js');
+const { DatabaseSync } = require('node:sqlite');
 const path = require('path');
 const fs = require('fs');
 
-// Directorio de datos
-const dataDir = path.join(__dirname, '../../data');
-if (!fs.existsSync(dataDir)) {
-    fs.mkdirSync(dataDir, { recursive: true });
+const defaultDataDir = path.join(__dirname, '../../data');
+
+function resolveDbPath() {
+    if (process.env.REKER_DB_PATH) {
+        if (process.env.REKER_DB_PATH === ':memory:') {
+            return ':memory:';
+        }
+        return path.resolve(process.env.REKER_DB_PATH);
+    }
+    return path.join(defaultDataDir, 'reker.db');
 }
 
-const dbPath = path.join(dataDir, 'reker.db');
+function ensureDbDir(dbPath) {
+    if (dbPath === ':memory:') return;
+    const dbDir = path.dirname(dbPath);
+    if (!fs.existsSync(dbDir)) {
+        fs.mkdirSync(dbDir, { recursive: true });
+    }
+}
 
 let db = null;
 
-// Wrapper para simular API síncrona de better-sqlite3
 class DatabaseWrapper {
     constructor(database) {
         this._db = database;
@@ -22,111 +33,84 @@ class DatabaseWrapper {
         const self = this;
         return {
             run(...params) {
-                self._db.run(sql, params);
-                return { lastInsertRowid: self._db.exec("SELECT last_insert_rowid()")[0]?.values[0]?.[0] || 0 };
+                return self._db.prepare(sql).run(...params);
             },
             get(...params) {
-                const stmt = self._db.prepare(sql);
-                stmt.bind(params);
-                if (stmt.step()) {
-                    const columns = stmt.getColumnNames();
-                    const values = stmt.get();
-                    stmt.free();
-                    const row = {};
-                    columns.forEach((col, i) => row[col] = values[i]);
-                    return row;
-                }
-                stmt.free();
-                return undefined;
+                return self._db.prepare(sql).get(...params);
             },
             all(...params) {
-                const stmt = self._db.prepare(sql);
-                stmt.bind(params);
-                const results = [];
-                const columns = stmt.getColumnNames();
-                while (stmt.step()) {
-                    const values = stmt.get();
-                    const row = {};
-                    columns.forEach((col, i) => row[col] = values[i]);
-                    results.push(row);
-                }
-                stmt.free();
-                return results;
+                return self._db.prepare(sql).all(...params);
             }
         };
     }
 
     exec(sql) {
-        this._db.run(sql);
+        this._db.exec(sql);
     }
 
     transaction(fn) {
-        return () => {
-            this._db.run("BEGIN TRANSACTION");
+        return (...args) => {
+            this._db.exec('BEGIN');
             try {
-                const result = fn();
-                this._db.run("COMMIT");
+                const result = fn(...args);
+                this._db.exec('COMMIT');
                 return result;
             } catch (e) {
-                this._db.run("ROLLBACK");
+                this._db.exec('ROLLBACK');
                 throw e;
             }
         };
     }
 
     pragma(str) {
-        this._db.run(`PRAGMA ${str}`);
+        this._db.exec(`PRAGMA ${str}`);
     }
 
     close() {
-        // Guardar a disco
-        const data = this._db.export();
-        const buffer = Buffer.from(data);
-        fs.writeFileSync(dbPath, buffer);
+        this._db.close();
     }
 
     save() {
-        const data = this._db.export();
-        const buffer = Buffer.from(data);
-        fs.writeFileSync(dbPath, buffer);
+        // No-op: SQLite persiste transaccionalmente en disco en cada COMMIT.
     }
 }
 
 async function initDatabase() {
     if (db) return db;
-
-    const SQL = await initSqlJs();
-
-    let database;
-    if (fs.existsSync(dbPath)) {
-        const buffer = fs.readFileSync(dbPath);
-        database = new SQL.Database(buffer);
-    } else {
-        database = new SQL.Database();
-    }
-
+    const dbPath = resolveDbPath();
+    ensureDbDir(dbPath);
+    const database = new DatabaseSync(dbPath);
     db = new DatabaseWrapper(database);
-
-    // Guardar periódicamente
-    setInterval(() => {
-        if (db) db.save();
-    }, 30000);
+    db.exec('PRAGMA foreign_keys = ON');
+    db.exec('PRAGMA journal_mode = WAL');
+    db.exec('PRAGMA synchronous = NORMAL');
 
     return db;
 }
 
-// Para compatibilidad, exportamos una promesa que resuelve el db
-let dbPromise = initDatabase();
+let dbPromise = null;
 
 module.exports = {
     getDb: async () => {
         if (!db) {
+            if (!dbPromise) {
+                dbPromise = initDatabase();
+            }
             db = await dbPromise;
         }
         return db;
     },
+    // Alias explícito para inicialización en tests
+    initDb: initDatabase,
     // Para uso sincrónico después de inicializar
     get db() {
         return db;
+    },
+    resetDbForTests: () => {
+        if (db) {
+            db.close();
+        }
+        db = null;
+        dbPromise = null;
     }
 };

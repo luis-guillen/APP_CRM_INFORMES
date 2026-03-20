@@ -36,6 +36,14 @@
 
     <!-- Aplicación Principal -->
     <div id="app-screen" class="screen hidden">
+        <!-- Mobile Header (visible on <=768px only via CSS) -->
+        <header class="mobile-header">
+            <button class="mobile-menu-btn" id="mobile-menu-btn" aria-label="Abrir menú">☰</button>
+            <span class="mobile-header-title">Reker Tech</span>
+            <button class="mobile-menu-btn" id="mobile-logout-btn" aria-label="Cerrar sesión">⎋</button>
+        </header>
+        <!-- Overlay for off-canvas sidebar -->
+        <div class="mobile-overlay" id="mobile-overlay"></div>
         <!-- Sidebar -->
         <aside class="sidebar">
             <div class="sidebar-header">
@@ -222,6 +230,7 @@
     <!-- Toast para notificaciones -->
     <div id="toast" class="toast"></div>
 
+    <script src="/js/security-utils.js"></script>
     <script src="/js/app.js"></script>
 </body>
 

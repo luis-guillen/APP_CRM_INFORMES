@@ -2,12 +2,16 @@ const { getDb } = require('./db');
 const fs = require('fs');
 const path = require('path');
 const bcrypt = require('bcryptjs');
+const { resolveBootstrapAdminPassword } = require('../services/securityConfig');
 
 async function init() {
     console.log('🔧 Inicializando base de datos Reker Tech Solutions...\n');
-
     const db = await getDb();
+    await initializeDatabase(db);
+    console.log('✅ Base de datos lista.');
+}
 
+async function initializeDatabase(db) {
     // Leer y ejecutar el esquema SQL
     const schemaPath = path.join(__dirname, 'schema.sql');
     const schema = fs.readFileSync(schemaPath, 'utf8');
@@ -19,15 +23,12 @@ async function init() {
             try {
                 db.exec(statement);
             } catch (e) {
-                // Ignorar errores de "tabla ya existe"
                 if (!e.message.includes('already exists')) {
                     console.error('Error ejecutando:', statement.substring(0, 50), e.message);
                 }
             }
         }
     }
-
-    console.log('✅ Tablas creadas correctamente\n');
 
     // Migraciones para bases de datos existentes
     const migrations = [
@@ -43,7 +44,12 @@ async function init() {
     const adminExists = db.prepare('SELECT id FROM usuarios WHERE email = ?').get('admin@reker.es');
 
     if (!adminExists) {
-        const passwordHash = bcrypt.hashSync('admin123', 10);
+        const adminPassword = resolveBootstrapAdminPassword({
+            env: process.env,
+            nodeEnv: process.env.NODE_ENV,
+            logger: console
+        });
+        const passwordHash = bcrypt.hashSync(adminPassword, 10);
         db.prepare(`
             INSERT INTO usuarios (nombre, email, password_hash, rol)
             VALUES (?, ?, ?, ?)
@@ -51,8 +57,10 @@ async function init() {
 
         console.log('👤 Usuario administrador creado:');
         console.log('   Email: admin@reker.es');
-        console.log('   Contraseña: admin123');
-        console.log('   ⚠️  Cambia la contraseña después del primer login\n');
+        if (process.env.NODE_ENV !== 'production') {
+            console.log(`   Contraseña temporal: ${adminPassword}`);
+            console.log('   ⚠️  Cambia la contraseña después del primer login\n');
+        }
     } else {
         console.log('👤 Usuario administrador ya existe\n');
     }
@@ -76,7 +84,11 @@ async function init() {
     db.save();
 
     console.log('\n✨ Base de datos inicializada correctamente');
-    console.log('   Ejecuta "npm start" para iniciar el servidor\n');
 }
 
-init().catch(console.error);
+// Permitir ejecución directa como script
+if (require.main === module) {
+    init().catch(console.error);
+}
+
+module.exports = { initializeDatabase };

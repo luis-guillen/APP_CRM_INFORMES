@@ -818,6 +818,70 @@ body {
 }
 
 /* ===============================
+   Contacto Rows (Client form)
+   =============================== */
+.contacto-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.contacto-row input {
+    flex: 1 1 140px;
+    min-width: 90px;
+    padding: 8px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    font-size: 14px;
+}
+
+.contacto-row .btn-small {
+    flex-shrink: 0;
+}
+
+/* ===============================
+   Anexo Items (Reunion view)
+   =============================== */
+.anexo-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: var(--color-bg);
+    border-radius: var(--radius-sm);
+    border-left: 3px solid var(--color-accent);
+    margin-bottom: 6px;
+    word-break: break-all;
+}
+
+.anexo-item span {
+    flex: 1;
+    min-width: 0;
+    font-size: 13px;
+}
+
+.anexos-upload-section {
+    margin-top: 16px;
+    padding: 16px;
+    background: var(--color-bg);
+    border-radius: var(--radius-md);
+    border: 1px dashed var(--color-border);
+}
+
+.anexos-upload-section h5 {
+    margin-bottom: 12px;
+    font-size: 14px;
+    color: var(--color-primary);
+}
+
+.btn-upload-anexos {
+    margin-top: 10px;
+}
+
+/* ===============================
    Toast
    =============================== */
 .toast {
@@ -853,9 +917,61 @@ body {
 }
 
 /* ===============================
-   Responsive
+   Mobile Header (visible only on mobile)
    =============================== */
-@media (max-width: 1024px) {
+.mobile-header {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 56px;
+    background: linear-gradient(90deg, var(--color-primary), var(--color-primary-light));
+    color: var(--color-white);
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px;
+    z-index: 200;
+    box-shadow: var(--shadow-md);
+}
+
+.mobile-header-title {
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+}
+
+.mobile-menu-btn {
+    background: none;
+    border: none;
+    color: var(--color-white);
+    font-size: 24px;
+    cursor: pointer;
+    padding: 8px;
+    line-height: 1;
+    min-width: 44px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.mobile-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 150;
+}
+
+.mobile-overlay.active {
+    display: block;
+}
+
+/* ===============================
+   Responsive — 1024px (tablet landscape)
+   =============================== */
+@media (max-width: 1024px) and (min-width: 769px) {
     .sidebar {
         width: 70px;
     }
@@ -878,7 +994,36 @@ body {
     }
 }
 
+/* ===============================
+   Responsive — 768px (tablet portrait)
+   =============================== */
 @media (max-width: 768px) {
+    /* Show mobile header, hide fixed sidebar */
+    .mobile-header {
+        display: flex;
+    }
+
+    .sidebar {
+        position: fixed;
+        left: -280px;
+        top: 0;
+        width: 280px;
+        height: 100vh;
+        z-index: 160;
+        transition: left 0.3s ease;
+    }
+
+    .sidebar.open {
+        left: 0;
+    }
+
+    .main-content {
+        margin-left: 0;
+        padding: 24px 16px;
+        padding-top: calc(56px + 20px); /* mobile header height + spacing */
+    }
+
+    /* Grids */
     .form-row {
         grid-template-columns: 1fr;
     }
@@ -889,20 +1034,193 @@ body {
 
     .stats-grid {
         grid-template-columns: 1fr 1fr;
+        gap: 12px;
+    }
+
+    /* Search bar full width */
+    .search-bar input {
+        max-width: 100%;
+    }
+
+    /* View header stacks on tablet */
+    .view-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+    }
+
+    /* Modal */
+    .modal-content {
+        max-width: 100%;
+        margin: 0;
+        border-radius: var(--radius-md);
+    }
+
+    /* Data list items — prevent overflow */
+    .data-list-item {
+        flex-wrap: wrap;
+        gap: 8px;
+        padding: 12px 16px;
+    }
+
+    .data-list-info {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .data-list-info h4 {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    /* Card actions wrap on tablet */
+    .card-actions {
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+
+    /* Perfil item stacks */
+    .perfil-item-reunion {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+
+    .perfil-item-actions {
+        width: 100%;
+        flex-wrap: wrap;
     }
 }
 
+/* ===============================
+   Responsive — 480px (phones)
+   =============================== */
 @media (max-width: 480px) {
     .stats-grid {
         grid-template-columns: 1fr;
     }
 
-    .main-content {
+    .stat-card {
         padding: 16px;
     }
 
-    .view-header {
+    .main-content {
+        padding: 12px;
+        padding-top: calc(56px + 12px);
+    }
+
+    .view-header h1 {
+        font-size: 22px;
+    }
+
+    /* Make all buttons touch-safe */
+    .btn {
+        min-height: 44px;
+        padding: 10px 16px;
+    }
+
+    .btn-small {
+        min-height: 36px;
+        padding: 6px 10px;
+    }
+
+    /* Modal — full-screen on phone */
+    .modal {
+        padding: 0;
+        align-items: flex-end;
+    }
+
+    .modal-content {
+        border-radius: var(--radius-md) var(--radius-md) 0 0;
+        max-height: 92vh;
+        width: 100%;
+    }
+
+    .modal-body {
+        padding: 16px;
+    }
+
+    .modal-footer {
+        padding: 12px 16px;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .modal-footer .btn {
+        flex: 1;
+        min-width: 120px;
+    }
+
+    /* Forms */
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+        font-size: 16px; /* prevents iOS auto-zoom on focus */
+    }
+
+    .login-container {
+        padding: 20px 16px;
+    }
+
+    .login-form {
+        padding: 24px 20px;
+    }
+
+    /* Card header stacks on phone */
+    .card-header {
         flex-direction: column;
-        gap: 16px;
+        align-items: flex-start;
+        gap: 10px;
+    }
+
+    .card-actions {
+        width: 100%;
+        flex-wrap: wrap;
+    }
+
+    /* Data list stacks */
+    .data-list-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 14px 12px;
+    }
+
+    .data-list-item > div:last-child {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        width: 100%;
+    }
+
+    .data-list-item .btn {
+        flex: 1;
+    }
+
+    /* Asistente item stacks vertically on phone */
+    .asistente-item {
+        flex-wrap: wrap;
+    }
+
+    .asistente-item input,
+    .asistente-item select {
+        flex: 1 1 calc(50% - 8px);
+        min-width: 120px;
+    }
+
+    /* Anexo items */
+    .anexo-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+
+    /* Toast */
+    .toast {
+        bottom: 16px;
+        right: 16px;
+        left: 16px;
+        text-align: center;
     }
 }

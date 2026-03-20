@@ -5,8 +5,7 @@
 
 // Estado global de la aplicación
 const App = {
-    token: localStorage.getItem('token'),
-    user: JSON.parse(localStorage.getItem('user') || 'null'),
+    user: null,
     currentView: 'dashboard',
     data: {
         clientes: [],
@@ -36,22 +35,20 @@ const elements = {
 // ================================
 const API_BASE = '/api';
 async function api(endpoint, options = {}) {
-    const headers = {
-        'Content-Type': 'application/json',
-        ...options.headers
-    };
-
-    if (App.token) {
-        headers['Authorization'] = `Bearer ${App.token}`;
+    const headers = { ...options.headers };
+    const method = (options.method || 'GET').toUpperCase();
+    if (method !== 'GET' && method !== 'HEAD' && !headers['Content-Type']) {
+        headers['Content-Type'] = 'application/json';
     }
 
     try {
         const response = await fetch(`/api${endpoint}`, {
             ...options,
-            headers
+            headers,
+            credentials: 'same-origin'
         });
 
-        const data = await response.json();
+        const data = await response.json().catch(() => ({}));
 
         if (!response.ok) {
             throw new Error(data.error || 'Error en la solicitud');
@@ -69,15 +66,13 @@ async function api(endpoint, options = {}) {
 // ================================
 async function login(email, password) {
     try {
+        elements.loginError.textContent = '';
         const data = await api('/auth/login', {
             method: 'POST',
             body: JSON.stringify({ email, password })
         });
 
-        App.token = data.token;
         App.user = data.user;
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('user', JSON.stringify(data.user));
 
         showApp();
         showToast('Sesión iniciada correctamente', 'success');
@@ -86,13 +81,26 @@ async function login(email, password) {
     }
 }
 
-function logout() {
-    App.token = null;
+async function logout() {
     App.user = null;
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+    try {
+        await api('/auth/logout', { method: 'POST' });
+    } catch (error) {
+        console.warn('No se pudo confirmar logout en servidor:', error);
+    }
     showLogin();
     showToast('Sesión cerrada');
+}
+
+async function restoreSession() {
+    try {
+        const data = await api('/auth/me');
+        App.user = data.user;
+        showApp();
+    } catch (error) {
+        App.user = null;
+        showLogin();
+    }
 }
 
 function showLogin() {
@@ -105,8 +113,49 @@ function showApp() {
     elements.appScreen.classList.remove('hidden');
     updateUserInfo();
     updateAdminVisibility();
+    setupMobileNav();
     loadDashboard();
     navigateTo('dashboard');
+}
+
+function setupMobileNav() {
+    const menuBtn = document.getElementById('mobile-menu-btn');
+    const logoutBtn = document.getElementById('mobile-logout-btn');
+    const overlay = document.getElementById('mobile-overlay');
+    const sidebar = document.querySelector('.sidebar');
+
+    if (!menuBtn || !overlay || !sidebar) return;
+
+    function openSidebar() {
+        sidebar.classList.add('open');
+        overlay.classList.add('active');
+    }
+
+    function closeSidebar() {
+        sidebar.classList.remove('open');
+        overlay.classList.remove('active');
+    }
+
+    // Remove old listeners by cloning (safe for multiple showApp calls)
+    const newMenuBtn = menuBtn.cloneNode(true);
+    menuBtn.parentNode.replaceChild(newMenuBtn, menuBtn);
+    const newOverlay = overlay.cloneNode(true);
+    overlay.parentNode.replaceChild(newOverlay, overlay);
+
+    newMenuBtn.addEventListener('click', openSidebar);
+    newOverlay.addEventListener('click', closeSidebar);
+
+    // Close sidebar on nav-item click (mobile)
+    document.querySelectorAll('.nav-item').forEach(item => {
+        item.addEventListener('click', closeSidebar);
+    });
+
+    // Mobile logout button
+    if (logoutBtn) {
+        const newLogoutBtn = logoutBtn.cloneNode(true);
+        logoutBtn.parentNode.replaceChild(newLogoutBtn, logoutBtn);
+        newLogoutBtn.addEventListener('click', logout);
+    }
 }
 
 function updateUserInfo() {
@@ -321,11 +370,11 @@ function openClienteForm(cliente = null) {
                 <h4>Contactos Adicionales <button type="button" class="btn btn-small btn-secondary" onclick="addContactoRow()">+ Añadir</button></h4>
                 <div id="contactos-container">
                     ${contactosExistentes.map((c, i) => `
-                        <div class="contacto-row" style="display: flex; gap: 10px; margin-bottom: 10px; align-items: center;">
-                            <input type="text" placeholder="Nombre" value="${c.nombre || ''}" class="contacto-nombre" style="flex: 2">
-                            <input type="text" placeholder="Cargo" value="${c.cargo || ''}" class="contacto-cargo" style="flex: 1">
-                            <input type="tel" placeholder="Teléfono" value="${c.telefono || ''}" class="contacto-telefono" style="flex: 1">
-                            <input type="email" placeholder="Email" value="${c.email || ''}" class="contacto-email" style="flex: 1">
+                        <div class="contacto-row">
+                            <input type="text" placeholder="Nombre" value="${c.nombre || ''}" class="contacto-nombre">
+                            <input type="text" placeholder="Cargo" value="${c.cargo || ''}" class="contacto-cargo">
+                            <input type="tel" placeholder="Teléfono" value="${c.telefono || ''}" class="contacto-telefono">
+                            <input type="email" placeholder="Email" value="${c.email || ''}" class="contacto-email">
                             <button type="button" class="btn btn-small btn-danger" onclick="this.parentElement.remove()">×</button>
                         </div>
                     `).join('')}
@@ -376,12 +425,11 @@ function addContactoRow() {
     const container = document.getElementById('contactos-container');
     const row = document.createElement('div');
     row.className = 'contacto-row';
-    row.style.cssText = 'display: flex; gap: 10px; margin-bottom: 10px; align-items: center;';
     row.innerHTML = `
-        <input type="text" placeholder="Nombre" class="contacto-nombre" style="flex: 2">
-        <input type="text" placeholder="Cargo" class="contacto-cargo" style="flex: 1">
-        <input type="tel" placeholder="Teléfono" class="contacto-telefono" style="flex: 1">
-        <input type="email" placeholder="Email" class="contacto-email" style="flex: 1">
+        <input type="text" placeholder="Nombre" class="contacto-nombre">
+        <input type="text" placeholder="Cargo" class="contacto-cargo">
+        <input type="tel" placeholder="Teléfono" class="contacto-telefono">
+        <input type="email" placeholder="Email" class="contacto-email">
         <button type="button" class="btn btn-small btn-danger" onclick="this.parentElement.remove()">×</button>
     `;
     container.appendChild(row);
@@ -744,9 +792,7 @@ async function saveReunion(form, reunionId = null) {
             try {
                 const response = await fetch(`/api/reuniones/${savedReunionId}/anexos`, {
                     method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${App.token}`
-                    },
+                    credentials: 'same-origin',
                     body: anexosFormData
                 });
 
@@ -806,15 +852,15 @@ async function viewReunion(id) {
                 <h4>Anexos (${(reunion.anexos || []).length})</h4>
                 <div id="anexos-list">
                     ${(reunion.anexos || []).map(a => `
-                        <div class="anexo-item" style="display: flex; justify-content: space-between; align-items: center; padding: 8px; background: rgba(255,255,255,0.1); border-radius: 6px; margin-bottom: 6px;">
+                        <div class="anexo-item">
                             <span>📎 ${a.nombre_archivo || a.descripcion} <small>(${a.tipo})</small></span>
                             <button class="btn btn-small btn-danger" onclick="deleteAnexo(${id}, ${a.id})">Eliminar</button>
                         </div>
                     `).join('') || '<p>Sin anexos</p>'}
                 </div>
-                <div style="margin-top: 15px; padding: 15px; background: rgba(255,255,255,0.05); border-radius: 8px;">
-                    <h5 style="margin-bottom: 10px;">Subir nuevos anexos</h5>
-                    <div class="form-row" style="gap: 10px;">
+                <div class="anexos-upload-section">
+                    <h5>Subir nuevos anexos</h5>
+                    <div class="form-row">
                         <div class="form-group">
                             <label>Documentos (PDF, DOC, XLS...)</label>
                             <input type="file" id="anexo-docs" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx">
@@ -824,7 +870,7 @@ async function viewReunion(id) {
                             <input type="file" id="anexo-fotos" multiple accept="image/*">
                         </div>
                     </div>
-                    <button class="btn btn-primary" onclick="uploadAnexos(${id})" style="margin-top: 10px;">📤 Subir Anexos</button>
+                    <button class="btn btn-primary btn-upload-anexos" onclick="uploadAnexos(${id})">📤 Subir Anexos</button>
                 </div>
             </div>
             <div class="modal-footer">
@@ -862,9 +908,7 @@ async function uploadAnexos(reunionId) {
     try {
         const response = await fetch(`${API_BASE}/reuniones/${reunionId}/anexos`, {
             method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${App.token}`
-            },
+            credentials: 'same-origin',
             body: formData
         });
 
@@ -944,7 +988,7 @@ async function loadInformes() {
                         <span>${i.tipo} - ${formatFileSize(i.tamaño)} - ${formatDate(i.fecha)}</span>
                     </div>
                     <div>
-                        <a href="/reports/${i.nombre}" class="btn btn-small btn-secondary" download>Descargar</a>
+                        <button class="btn btn-small btn-secondary" onclick="downloadInforme('${encodeURIComponent(i.nombre)}')">Descargar</button>
                         ${App.user?.rol === 'admin' ? `<button class="btn btn-small btn-danger" onclick="deleteInforme('${i.nombre}')">Eliminar</button>` : ''}
                     </div>
                 </div>
@@ -959,7 +1003,7 @@ async function generatePDF(reunionId) {
     showToast('Generando PDF...', 'success');
     try {
         const response = await fetch(`/api/informes/${reunionId}/pdf`, {
-            headers: { 'Authorization': `Bearer ${App.token}` }
+            credentials: 'same-origin'
         });
         if (!response.ok) throw new Error('Error al generar PDF');
         const blob = await response.blob();
@@ -981,7 +1025,7 @@ async function generateDOCX(reunionId) {
     showToast('Generando Word...', 'success');
     try {
         const response = await fetch(`/api/informes/${reunionId}/docx`, {
-            headers: { 'Authorization': `Bearer ${App.token}` }
+            credentials: 'same-origin'
         });
         if (!response.ok) throw new Error('Error al generar Word');
         const blob = await response.blob();
@@ -1008,6 +1052,35 @@ async function deleteInforme(filename) {
         loadInformes();
     } catch (error) {
         showToast(error.message, 'error');
+    }
+}
+
+async function downloadInforme(encodedFilename) {
+    try {
+        const response = await fetch(`/api/informes/download/${encodedFilename}`, {
+            credentials: 'same-origin'
+        });
+
+        if (!response.ok) {
+            const err = await response.json().catch(() => ({}));
+            throw new Error(err.error || 'Error al descargar informe');
+        }
+
+        const blob = await response.blob();
+        const disposition = response.headers.get('content-disposition') || '';
+        const filenameMatch = disposition.match(/filename="?([^"]+)"?/i);
+        const filename = filenameMatch?.[1] || decodeURIComponent(encodedFilename);
+
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+    } catch (error) {
+        showToast(error.message || 'No se pudo descargar el informe', 'error');
     }
 }
 
@@ -1580,10 +1653,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // Búsqueda
     setupSearch();
 
-    // Verificar sesión existente
-    if (App.token && App.user) {
-        showApp();
-    } else {
-        showLogin();
-    }
+    // Verificar sesión existente en cookie httpOnly
+    restoreSession();
 });

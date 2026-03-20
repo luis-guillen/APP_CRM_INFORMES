@@ -1,7 +1,31 @@
+# Dependencias y entornos
 node_modules/
-data/
-reports/
-uploads/
-*.log
-.DS_Store
 .env
+.env.local
+.env.*.local
+
+# Datos de persistencia y ficheros dinámicos
+data/
+uploads/
+reports/
+tmp/
+
+# Logs del servidor y NPM
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Configuración de Editores y Sistemas Operativos
+.DS_Store
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+
+# Ficheros accidentales (ej: sqlite memory bugs)
+:memory:
+*.db

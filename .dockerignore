@@ -1,0 +1,14 @@
+node_modules/
+.git/
+.gitignore
+tests/
+tmp/
+data/*
+uploads/*
+reports/*
+.env
+.DS_Store
+README.md
+WALKTHROUGH.md
+Dockerfile
+docker-compose.yml

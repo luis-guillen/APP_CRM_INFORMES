@@ -1,86 +1,86 @@
-const express = require('express');
-const router = express.Router();
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
-const { getDb } = require('../database/db');
-const { JWT_SECRET, authenticate } = require('../middleware/auth');
+'use strict';
 
-// POST /api/auth/login - Iniciar sesión
-router.post('/login', async (req, res) => {
+const express = require('express');
+const router  = express.Router();
+const bcrypt  = require('bcryptjs');
+const jwt     = require('jsonwebtoken');
+const { getDb }                   = require('../database/db');
+const { JWT_SECRET, AUTH_COOKIE_NAME, authenticate } = require('../middleware/auth');
+const { authLoginLimiter, authSensitiveLimiter }    = require('../middleware/rateLimit');
+const UsuarioRepository           = require('../repositories/UsuarioRepository');
+
+function getCookieOptions() {
+    return {
+        httpOnly: true,
+        secure:   process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        maxAge:   24 * 60 * 60 * 1000,
+        path:     '/'
+    };
+}
+
+// ----------------------------------------------------------------
+// POST /api/auth/login
+// ----------------------------------------------------------------
+router.post('/login', authLoginLimiter, async (req, res) => {
     try {
         const { email, password } = req.body;
+        if (!email || !password) return res.status(400).json({ error: 'Email y contraseña son requeridos' });
 
-        if (!email || !password) {
-            return res.status(400).json({ error: 'Email y contraseña son requeridos' });
-        }
+        const db   = await getDb();
+        const repo = new UsuarioRepository(db);
+        const user = repo.getByEmail(email);
 
-        const db = await getDb();
-        const user = db.prepare('SELECT * FROM usuarios WHERE email = ? AND activo = 1').get(email);
-
-        if (!user) {
+        if (!user || !bcrypt.compareSync(password, user.password_hash)) {
             return res.status(401).json({ error: 'Credenciales inválidas' });
         }
 
-        const validPassword = bcrypt.compareSync(password, user.password_hash);
+        const token = jwt.sign({ userId: user.id, email: user.email, rol: user.rol }, JWT_SECRET, { expiresIn: '24h' });
 
-        if (!validPassword) {
-            return res.status(401).json({ error: 'Credenciales inválidas' });
-        }
-
-        const token = jwt.sign(
-            { userId: user.id, email: user.email, rol: user.rol },
-            JWT_SECRET,
-            { expiresIn: '24h' }
-        );
-
-        res.json({
-            token,
-            user: {
-                id: user.id,
-                nombre: user.nombre,
-                email: user.email,
-                rol: user.rol,
-                cliente_id: user.cliente_id
-            }
-        });
-    } catch (error) {
-        console.error('Error en login:', error);
+        res.cookie(AUTH_COOKIE_NAME, token, getCookieOptions());
+        res.json({ user: { id: user.id, nombre: user.nombre, email: user.email, rol: user.rol, cliente_id: user.cliente_id } });
+    } catch (err) {
+        console.error('Error en login:', err);
         res.status(500).json({ error: 'Error al iniciar sesión' });
     }
 });
 
-// GET /api/auth/me - Obtener usuario actual
+// ----------------------------------------------------------------
+// GET /api/auth/me
+// ----------------------------------------------------------------
 router.get('/me', authenticate, (req, res) => {
     res.json({ user: req.user });
 });
 
-// POST /api/auth/change-password - Cambiar contraseña
-router.post('/change-password', authenticate, async (req, res) => {
+// ----------------------------------------------------------------
+// POST /api/auth/logout
+// ----------------------------------------------------------------
+router.post('/logout', (req, res) => {
+    res.clearCookie(AUTH_COOKIE_NAME, { path: '/', sameSite: 'strict', secure: process.env.NODE_ENV === 'production' });
+    res.json({ message: 'Sesión cerrada' });
+});
+
+// ----------------------------------------------------------------
+// POST /api/auth/change-password
+// ----------------------------------------------------------------
+router.post('/change-password', authenticate, authSensitiveLimiter, async (req, res) => {
     try {
         const { currentPassword, newPassword } = req.body;
+        if (!currentPassword || !newPassword) return res.status(400).json({ error: 'Contraseña actual y nueva son requeridas' });
+        if (newPassword.length < 6) return res.status(400).json({ error: 'La nueva contraseña debe tener al menos 6 caracteres' });
 
-        if (!currentPassword || !newPassword) {
-            return res.status(400).json({ error: 'Contraseña actual y nueva son requeridas' });
-        }
+        const db    = await getDb();
+        const repo  = new UsuarioRepository(db);
+        const user  = repo.getPasswordHash(req.user.id);
 
-        if (newPassword.length < 6) {
-            return res.status(400).json({ error: 'La nueva contraseña debe tener al menos 6 caracteres' });
-        }
-
-        const db = await getDb();
-        const user = db.prepare('SELECT password_hash FROM usuarios WHERE id = ?').get(req.user.id);
-
-        if (!bcrypt.compareSync(currentPassword, user.password_hash)) {
+        if (!user || !bcrypt.compareSync(currentPassword, user.password_hash)) {
             return res.status(401).json({ error: 'Contraseña actual incorrecta' });
         }
 
-        const newHash = bcrypt.hashSync(newPassword, 10);
-        db.prepare('UPDATE usuarios SET password_hash = ?, actualizado_en = CURRENT_TIMESTAMP WHERE id = ?').run(newHash, req.user.id);
-        db.save();
-
+        repo.updatePassword(req.user.id, bcrypt.hashSync(newPassword, 10));
         res.json({ message: 'Contraseña actualizada correctamente' });
-    } catch (error) {
-        console.error('Error al cambiar contraseña:', error);
+    } catch (err) {
+        console.error('Error al cambiar contraseña:', err);
         res.status(500).json({ error: 'Error al cambiar contraseña' });
     }
 });

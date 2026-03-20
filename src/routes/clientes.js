@@ -1,235 +1,143 @@
-const express = require('express');
-const router = express.Router();
-const { getDb } = require('../database/db');
-const { authenticate, authorize } = require('../middleware/auth');
+'use strict';
 
-// Aplicar autenticación a todas las rutas
+const express = require('express');
+const router  = express.Router();
+const { getDb }           = require('../database/db');
+const { authenticate, authorize } = require('../middleware/auth');
+const { canAccessCliente, canAccessReunion, getClienteById } = require('../services/objectAccess');
+const ClienteRepository   = require('../repositories/ClienteRepository');
+
 router.use(authenticate);
 
-// GET /api/clientes - Listar clientes del usuario
+// ----------------------------------------------------------------
+// GET /api/clientes
+// ----------------------------------------------------------------
 router.get('/', async (req, res) => {
     try {
-        const db = await getDb();
-        // Si es cliente, solo ver su propia empresa
-        if (req.user.rol === 'cliente' && req.user.cliente_id) {
-            const cliente = db.prepare('SELECT * FROM clientes WHERE id = ?').get(req.user.cliente_id);
-            return res.json([cliente].filter(Boolean));
-        }
-
-        // Admin ve todo, técnico ve solo lo suyo + favoritos
-        if (req.user.rol === 'admin') {
-            const clientes = db.prepare(`
-                SELECT c.*, u.email as creador_email
-                FROM clientes c
-                LEFT JOIN usuarios u ON c.creado_por = u.id
-                ORDER BY c.empresa ASC
-            `).all();
-            return res.json(clientes);
-        }
-
-        // Técnico: sus clientes + favoritos
-        const clientes = db.prepare(`
-            SELECT c.*, u.email as creador_email
-            FROM clientes c
-            LEFT JOIN usuarios u ON c.creado_por = u.id
-            WHERE c.creado_por = ?
-            OR c.id IN (SELECT recurso_id FROM favoritos WHERE tipo = 'cliente' AND usuario_id = ?)
-            ORDER BY c.empresa ASC
-        `).all(req.user.id, req.user.id);
-        res.json(clientes);
-    } catch (error) {
-        console.error('Error al listar clientes:', error);
+        const db   = await getDb();
+        const repo = new ClienteRepository(db);
+        res.json(repo.getAll(req.user));
+    } catch (err) {
+        console.error('Error al listar clientes:', err);
         res.status(500).json({ error: 'Error al obtener clientes' });
     }
 });
 
-// GET /api/clientes/:id - Obtener un cliente
+// ----------------------------------------------------------------
+// GET /api/clientes/:id
+// ----------------------------------------------------------------
 router.get('/:id', async (req, res) => {
     try {
-        const db = await getDb();
-        const cliente = db.prepare('SELECT * FROM clientes WHERE id = ?').get(parseInt(req.params.id));
+        const db   = await getDb();
+        const repo = new ClienteRepository(db);
+        const cliente = repo.getById(req.params.id);
 
-        if (!cliente) {
-            return res.status(404).json({ error: 'Cliente no encontrado' });
-        }
-
-        // Verificar acceso si es rol cliente
-        if (req.user.rol === 'cliente' && req.user.cliente_id !== cliente.id) {
+        if (!cliente) return res.status(404).json({ error: 'Cliente no encontrado' });
+        if (!canAccessCliente(db, req.user, cliente, { action: 'read' }))
             return res.status(403).json({ error: 'No tienes acceso a este cliente' });
-        }
 
-        // Obtener contactos adicionales
-        const contactos = db.prepare('SELECT * FROM contactos_cliente WHERE cliente_id = ?').all(cliente.id);
-        cliente.contactos = contactos;
-
-        res.json(cliente);
-    } catch (error) {
-        console.error('Error al obtener cliente:', error);
+        res.json(repo.getWithContactos(cliente.id));
+    } catch (err) {
+        console.error('Error al obtener cliente:', err);
         res.status(500).json({ error: 'Error al obtener cliente' });
     }
 });
 
-// POST /api/clientes - Crear cliente (solo admin)
+// ----------------------------------------------------------------
+// POST /api/clientes
+// ----------------------------------------------------------------
 router.post('/', authorize('admin', 'tecnico'), async (req, res) => {
     try {
-        const { empresa, cif, persona_contacto, cargo, telefono, email, ubicacion, actividad_principal, contactos } = req.body;
-
-        if (!empresa || !persona_contacto) {
+        const { empresa, persona_contacto } = req.body;
+        if (!empresa || !persona_contacto)
             return res.status(400).json({ error: 'Empresa y persona de contacto son requeridos' });
-        }
 
-        const db = await getDb();
-        const result = db.prepare(`
-            INSERT INTO clientes (empresa, cif, persona_contacto, cargo, telefono, email, ubicacion, actividad_principal, creado_por)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `).run(empresa, cif || null, persona_contacto, cargo || null, telefono || null, email || null, ubicacion || null, actividad_principal || null, req.user.id);
-
-        const clienteId = result.lastInsertRowid;
-
-        // Insertar contactos adicionales si existen
-        if (contactos && contactos.length > 0) {
-            for (const c of contactos) {
-                if (c.nombre) {
-                    db.prepare(`
-                        INSERT INTO contactos_cliente (cliente_id, nombre, cargo, telefono, email, es_principal)
-                        VALUES (?, ?, ?, ?, ?, ?)
-                    `).run(clienteId, c.nombre, c.cargo || null, c.telefono || null, c.email || null, c.es_principal ? 1 : 0);
-                }
-            }
-        }
-
-        db.save();
-        const cliente = db.prepare('SELECT * FROM clientes WHERE id = ?').get(clienteId);
-        cliente.contactos = db.prepare('SELECT * FROM contactos_cliente WHERE cliente_id = ?').all(clienteId);
+        const db   = await getDb();
+        const repo = new ClienteRepository(db);
+        const cliente = repo.create(req.body, req.user.id);
         res.status(201).json(cliente);
-    } catch (error) {
-        console.error('Error al crear cliente:', error);
+    } catch (err) {
+        console.error('Error al crear cliente:', err);
         res.status(500).json({ error: 'Error al crear cliente' });
     }
 });
 
-// PUT /api/clientes/:id - Actualizar cliente (solo admin)
+// ----------------------------------------------------------------
+// PUT /api/clientes/:id
+// ----------------------------------------------------------------
 router.put('/:id', authorize('admin'), async (req, res) => {
     try {
-        const { empresa, cif, persona_contacto, cargo, telefono, email, ubicacion, actividad_principal, contactos } = req.body;
-        const id = parseInt(req.params.id);
+        const id = parseInt(req.params.id, 10);
+        const db   = await getDb();
+        const repo = new ClienteRepository(db);
+        const current = repo.getById(id);
+        if (!current) return res.status(404).json({ error: 'Cliente no encontrado' });
 
-        const db = await getDb();
-        const exists = db.prepare('SELECT id FROM clientes WHERE id = ?').get(id);
-        if (!exists) {
-            return res.status(404).json({ error: 'Cliente no encontrado' });
-        }
-
-        const current = db.prepare('SELECT * FROM clientes WHERE id = ?').get(id);
-
-        db.prepare(`
-            UPDATE clientes SET
-                empresa = ?,
-                cif = ?,
-                persona_contacto = ?,
-                cargo = ?,
-                telefono = ?,
-                email = ?,
-                ubicacion = ?,
-                actividad_principal = ?,
-                actualizado_en = CURRENT_TIMESTAMP
-            WHERE id = ?
-        `).run(
-            empresa || current.empresa,
-            cif !== undefined ? cif : current.cif,
-            persona_contacto || current.persona_contacto,
-            cargo !== undefined ? cargo : current.cargo,
-            telefono !== undefined ? telefono : current.telefono,
-            email !== undefined ? email : current.email,
-            ubicacion !== undefined ? ubicacion : current.ubicacion,
-            actividad_principal !== undefined ? actividad_principal : current.actividad_principal,
-            id
-        );
-
-        // Actualizar contactos si se proporcionan
-        if (contactos !== undefined) {
-            db.prepare('DELETE FROM contactos_cliente WHERE cliente_id = ?').run(id);
-            for (const c of contactos) {
-                if (c.nombre) {
-                    db.prepare(`
-                        INSERT INTO contactos_cliente (cliente_id, nombre, cargo, telefono, email, es_principal)
-                        VALUES (?, ?, ?, ?, ?, ?)
-                    `).run(id, c.nombre, c.cargo || null, c.telefono || null, c.email || null, c.es_principal ? 1 : 0);
-                }
-            }
-        }
-
-        db.save();
-        const cliente = db.prepare('SELECT * FROM clientes WHERE id = ?').get(id);
-        cliente.contactos = db.prepare('SELECT * FROM contactos_cliente WHERE cliente_id = ?').all(id);
+        const cliente = repo.update(id, req.body, current);
         res.json(cliente);
-    } catch (error) {
-        console.error('Error al actualizar cliente:', error);
+    } catch (err) {
+        console.error('Error al actualizar cliente:', err);
         res.status(500).json({ error: 'Error al actualizar cliente' });
     }
 });
 
-// DELETE /api/clientes/:id - Eliminar cliente (solo admin)
+// ----------------------------------------------------------------
+// DELETE /api/clientes/:id
+// ----------------------------------------------------------------
 router.delete('/:id', authorize('admin'), async (req, res) => {
     try {
-        const db = await getDb();
-        const exists = db.prepare('SELECT id FROM clientes WHERE id = ?').get(parseInt(req.params.id));
-        if (!exists) {
-            return res.status(404).json({ error: 'Cliente no encontrado' });
-        }
+        const db   = await getDb();
+        const repo = new ClienteRepository(db);
+        const cliente = repo.getById(req.params.id);
+        if (!cliente) return res.status(404).json({ error: 'Cliente no encontrado' });
 
-        db.prepare('DELETE FROM clientes WHERE id = ?').run(parseInt(req.params.id));
-        db.save();
+        repo.delete(cliente.id);
         res.json({ message: 'Cliente eliminado correctamente' });
-    } catch (error) {
-        console.error('Error al eliminar cliente:', error);
+    } catch (err) {
+        console.error('Error al eliminar cliente:', err);
         res.status(500).json({ error: 'Error al eliminar cliente' });
     }
 });
 
-// GET /api/clientes/:id/reuniones - Obtener reuniones de un cliente
+// ----------------------------------------------------------------
+// GET /api/clientes/:id/reuniones
+// ----------------------------------------------------------------
 router.get('/:id/reuniones', async (req, res) => {
     try {
-        const id = parseInt(req.params.id);
-        // Verificar acceso si es rol cliente
-        if (req.user.rol === 'cliente' && req.user.cliente_id !== id) {
+        const db      = await getDb();
+        const repo    = new ClienteRepository(db);
+        const cliente = repo.getById(req.params.id);
+
+        if (!cliente) return res.status(404).json({ error: 'Cliente no encontrado' });
+        if (!canAccessCliente(db, req.user, cliente, { action: 'read' }))
             return res.status(403).json({ error: 'No tienes acceso a este cliente' });
-        }
 
-        const db = await getDb();
-        const reuniones = db.prepare(`
-            SELECT r.*, c.empresa as cliente_empresa
-            FROM reuniones r
-            JOIN clientes c ON r.cliente_id = c.id
-            WHERE r.cliente_id = ?
-            ORDER BY r.fecha_hora DESC
-        `).all(id);
-
-        res.json(reuniones);
-    } catch (error) {
-        console.error('Error al obtener reuniones del cliente:', error);
+        res.json(repo.getReuniones(cliente.id));
+    } catch (err) {
+        console.error('Error al obtener reuniones del cliente:', err);
         res.status(500).json({ error: 'Error al obtener reuniones' });
     }
 });
 
-// PUT /api/clientes/:id/visibilidad - Toggle público/privado
+// ----------------------------------------------------------------
+// PUT /api/clientes/:id/visibilidad
+// ----------------------------------------------------------------
 router.put('/:id/visibilidad', authorize('admin', 'tecnico'), async (req, res) => {
     try {
-        const db = await getDb();
-        const id = parseInt(req.params.id);
-        const { publico } = req.body;
+        const id = parseInt(req.params.id, 10);
+        const db   = await getDb();
+        const repo = new ClienteRepository(db);
+        const cliente = repo.getById(id);
 
-        const cliente = db.prepare('SELECT * FROM clientes WHERE id = ?').get(id);
-        if (!cliente) {
-            return res.status(404).json({ error: 'Cliente no encontrado' });
-        }
+        if (!cliente) return res.status(404).json({ error: 'Cliente no encontrado' });
+        if (!canAccessCliente(db, req.user, cliente, { action: 'write' }))
+            return res.status(403).json({ error: 'No tienes permisos sobre este cliente' });
 
-        db.prepare('UPDATE clientes SET publico = ? WHERE id = ?').run(publico ? 1 : 0, id);
-        db.save();
-
+        const publico = req.body.publico;
+        repo.toggleVisibilidad(id, publico);
         res.json({ message: publico ? 'Cliente marcado como público' : 'Cliente marcado como privado', publico: publico ? 1 : 0 });
-    } catch (error) {
-        console.error('Error al cambiar visibilidad:', error);
+    } catch (err) {
+        console.error('Error al cambiar visibilidad:', err);
         res.status(500).json({ error: 'Error al cambiar visibilidad' });
     }
 });

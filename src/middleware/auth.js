@@ -1,17 +1,46 @@
 const jwt = require('jsonwebtoken');
 const { getDb } = require('../database/db');
+const { resolveJwtSecret } = require('../services/securityConfig');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'reker-tech-solutions-secret-key-2026';
+const JWT_SECRET = resolveJwtSecret({
+    env: process.env,
+    nodeEnv: process.env.NODE_ENV,
+    logger: console
+});
+const AUTH_COOKIE_NAME = 'auth_token';
+
+function getTokenFromCookieHeader(cookieHeader) {
+    if (!cookieHeader) {
+        return null;
+    }
+
+    const pairs = cookieHeader.split(';');
+    for (const pair of pairs) {
+        const [rawName, ...rest] = pair.trim().split('=');
+        if (rawName === AUTH_COOKIE_NAME) {
+            return decodeURIComponent(rest.join('='));
+        }
+    }
+
+    return null;
+}
 
 // Middleware de autenticación
 async function authenticate(req, res, next) {
     const authHeader = req.headers.authorization;
+    let token = null;
 
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        return res.status(401).json({ error: 'Token de acceso requerido' });
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+        token = authHeader.split(' ')[1];
     }
 
-    const token = authHeader.split(' ')[1];
+    if (!token) {
+        token = getTokenFromCookieHeader(req.headers.cookie);
+    }
+
+    if (!token) {
+        return res.status(401).json({ error: 'Token de acceso requerido' });
+    }
 
     try {
         const decoded = jwt.verify(token, JWT_SECRET);
@@ -59,5 +88,7 @@ module.exports = {
     authenticate,
     authorize,
     authorizeClientAccess,
-    JWT_SECRET
+    JWT_SECRET,
+    AUTH_COOKIE_NAME,
+    getTokenFromCookieHeader
 };
