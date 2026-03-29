@@ -145,14 +145,10 @@ router.put('/:id', authorize('admin', 'tecnico'), requireWriteAccess, async (req
 // ----------------------------------------------------------------
 // DELETE /api/reuniones/:id
 // ----------------------------------------------------------------
-router.delete('/:id', authorize('admin'), async (req, res) => {
+router.delete('/:id', authorize('admin', 'tecnico'), requireWriteAccess, async (req, res) => {
     try {
-        const db     = await getDb();
-        const repo   = new ReunionRepository(db);
-        const reunion = repo.getById(req.params.id);
-        if (!reunion) return res.status(404).json({ error: 'Reunión no encontrada' });
-
-        repo.delete(reunion.id);
+        const repo = new ReunionRepository(req.db);
+        repo.delete(req.reunion.id);
         res.json({ message: 'Reunión eliminada correctamente' });
     } catch (err) {
         console.error('Error al eliminar reunión:', err);

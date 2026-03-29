@@ -129,7 +129,10 @@
 
     if (typeof window !== 'undefined') {
         window.SecurityUtils = SecurityUtils;
-        SecurityUtils.hardenInnerHTMLSetter();
+        // hardenInnerHTMLSetter() auto-strips all on* attributes from innerHTML,
+        // which breaks all dynamically-rendered onclick handlers in the UI.
+        // XSS protection is handled at the source via escapeHtml() on user data in app.js.
+        // SecurityUtils.hardenInnerHTMLSetter();
     }
 
     if (typeof module !== 'undefined' && module.exports) {

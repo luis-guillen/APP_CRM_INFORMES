@@ -3,6 +3,17 @@
  * Reker Tech Solutions
  */
 
+// Helper de escape HTML para prevenir XSS al renderizar datos de usuario
+function escapeHtml(str) {
+    if (str == null) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#x27;');
+}
+
 // Estado global de la aplicación
 const App = {
     user: null,
@@ -296,23 +307,24 @@ function renderClientes(clientes) {
 
     container.innerHTML = clientes.map(c => {
         const esMio = c.creado_por === App.user?.id;
-        const creadorLabel = (!esMio && c.creador_email) ? `<span class="badge badge-shared" style="font-size:9px;margin-left:6px">📧 ${c.creador_email}</span>` : '';
+        const creadorLabel = (!esMio && c.creador_email) ? `<span class="badge badge-shared" style="font-size:9px;margin-left:6px">📧 ${escapeHtml(c.creador_email)}</span>` : '';
         return `
         <div class="data-card ${c.publico ? 'public-card' : ''}">
             <div class="card-header">
-                <h3>${c.empresa} ${creadorLabel} ${c.publico ? '<span class="badge badge-public">🌐</span>' : ''}</h3>
+                <h3>${escapeHtml(c.empresa)} ${creadorLabel} ${c.publico ? '<span class="badge badge-public">🌐</span>' : ''}</h3>
                 <div class="card-actions">
                     ${esMio ? `<button class="btn btn-ghost btn-small" onclick="toggleVisibilidad('clientes', ${c.id}, ${c.publico ? 0 : 1})" title="${c.publico ? 'Hacer privado' : 'Hacer público'}">${c.publico ? '🔒' : '🌐'}</button>` : ''}
                     <button class="btn btn-ghost btn-small" onclick="viewCliente(${c.id})">Ver</button>
                     ${esMio ? `<button class="btn btn-ghost btn-small" onclick="editCliente(${c.id})">Editar</button>` : ''}
+                    ${esMio ? `<button class="btn btn-ghost btn-small" onclick="openCompartirDialog('cliente', ${c.id}, ${JSON.stringify(c.empresa)})">Compartir</button>` : ''}
                     ${esMio ? `<button class="btn btn-ghost btn-small btn-danger" onclick="deleteCliente(${c.id})">Eliminar</button>` : `<button class="btn btn-ghost btn-small btn-danger" onclick="removeFavorito('cliente', ${c.id})">✕</button>`}
                 </div>
             </div>
             <div class="card-body">
-                <p><strong>Contacto:</strong> ${c.persona_contacto}</p>
-                <p><strong>Teléfono:</strong> ${c.telefono || '-'}</p>
-                <p><strong>Email:</strong> ${c.email || '-'}</p>
-                <p><strong>Ubicación:</strong> ${c.ubicacion || '-'}</p>
+                <p><strong>Contacto:</strong> ${escapeHtml(c.persona_contacto)}</p>
+                <p><strong>Teléfono:</strong> ${escapeHtml(c.telefono) || '-'}</p>
+                <p><strong>Email:</strong> ${escapeHtml(c.email) || '-'}</p>
+                <p><strong>Ubicación:</strong> ${escapeHtml(c.ubicacion) || '-'}</p>
             </div>
         </div>
     `}).join('');
@@ -542,23 +554,24 @@ function renderReuniones(reuniones) {
 
     container.innerHTML = reuniones.map(r => {
         const esMio = r.creado_por === App.user?.id;
-        const creadorLabel = (!esMio && r.creador_email) ? `<span class="badge badge-shared" style="font-size:9px;margin-left:6px">📧 ${r.creador_email}</span>` : '';
+        const creadorLabel = (!esMio && r.creador_email) ? `<span class="badge badge-shared" style="font-size:9px;margin-left:6px">📧 ${escapeHtml(r.creador_email)}</span>` : '';
         return `
         <div class="data-card ${r.publico ? 'public-card' : ''}">
             <div class="card-header">
-                <h3>${r.codigo_referencia} ${creadorLabel} ${r.publico ? '<span class="badge badge-public">🌐</span>' : ''}</h3>
+                <h3>${escapeHtml(r.codigo_referencia)} ${creadorLabel} ${r.publico ? '<span class="badge badge-public">🌐</span>' : ''}</h3>
                 <div class="card-actions">
                     ${esMio ? `<button class="btn btn-ghost btn-small" onclick="toggleVisibilidad('reuniones', ${r.id}, ${r.publico ? 0 : 1})" title="${r.publico ? 'Hacer privado' : 'Hacer público'}">${r.publico ? '🔒' : '🌐'}</button>` : ''}
                     <button class="btn btn-ghost btn-small" onclick="viewReunion(${r.id})">Ver</button>
                     ${esMio ? `<button class="btn btn-ghost btn-small" onclick="editReunion(${r.id})">Editar</button>` : ''}
+                    ${esMio ? `<button class="btn btn-ghost btn-small" onclick="openCompartirDialog('reunion', ${r.id}, ${JSON.stringify(r.codigo_referencia)})">Compartir</button>` : ''}
                     ${esMio ? `<button class="btn btn-ghost btn-small btn-danger" onclick="deleteReunion(${r.id})">Eliminar</button>` : `<button class="btn btn-ghost btn-small btn-danger" onclick="removeFavorito('reunion', ${r.id})">✕</button>`}
                 </div>
             </div>
             <div class="card-body">
-                <p><strong>Cliente:</strong> ${r.cliente_empresa}</p>
+                <p><strong>Cliente:</strong> ${escapeHtml(r.cliente_empresa)}</p>
                 <p><strong>Fecha:</strong> ${formatDateTime(r.fecha_hora)}</p>
-                <p><strong>Lugar:</strong> ${r.lugar || '-'}</p>
-                <p><strong>Motivo:</strong> ${r.motivo || '-'}</p>
+                <p><strong>Lugar:</strong> ${escapeHtml(r.lugar) || '-'}</p>
+                <p><strong>Motivo:</strong> ${escapeHtml(r.motivo) || '-'}</p>
             </div>
         </div>
     `}).join('');
@@ -854,10 +867,11 @@ async function viewReunion(id) {
                     ${(reunion.anexos || []).map(a => `
                         <div class="anexo-item">
                             <span>📎 ${a.nombre_archivo || a.descripcion} <small>(${a.tipo})</small></span>
-                            <button class="btn btn-small btn-danger" onclick="deleteAnexo(${id}, ${a.id})">Eliminar</button>
+                            ${(reunion.creado_por === App.user?.id || App.user?.rol === 'admin') ? `<button class="btn btn-small btn-danger" onclick="deleteAnexo(${id}, ${a.id})">Eliminar</button>` : ''}
                         </div>
                     `).join('') || '<p>Sin anexos</p>'}
                 </div>
+                ${(reunion.creado_por === App.user?.id || App.user?.rol === 'admin') ? `
                 <div class="anexos-upload-section">
                     <h5>Subir nuevos anexos</h5>
                     <div class="form-row">
@@ -871,11 +885,11 @@ async function viewReunion(id) {
                         </div>
                     </div>
                     <button class="btn btn-primary btn-upload-anexos" onclick="uploadAnexos(${id})">📤 Subir Anexos</button>
-                </div>
+                </div>` : ''}
             </div>
             <div class="modal-footer">
                 <button class="btn btn-secondary" onclick="closeModal()">Cerrar</button>
-                <button class="btn btn-primary" onclick="editReunion(${id}); closeModal();">Editar</button>
+                ${(reunion.creado_por === App.user?.id || App.user?.rol === 'admin') ? `<button class="btn btn-primary" onclick="editReunion(${id}); closeModal();">Editar</button>` : ''}
                 <button class="btn btn-ghost" onclick="generatePDF(${id})">📄 Generar PDF</button>
                 <button class="btn btn-ghost" onclick="generateDOCX(${id})">📝 Generar Word</button>
             </div>

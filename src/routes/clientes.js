@@ -65,13 +65,16 @@ router.post('/', authorize('admin', 'tecnico'), async (req, res) => {
 // ----------------------------------------------------------------
 // PUT /api/clientes/:id
 // ----------------------------------------------------------------
-router.put('/:id', authorize('admin'), async (req, res) => {
+router.put('/:id', authorize('admin', 'tecnico'), async (req, res) => {
     try {
         const id = parseInt(req.params.id, 10);
         const db   = await getDb();
         const repo = new ClienteRepository(db);
         const current = repo.getById(id);
         if (!current) return res.status(404).json({ error: 'Cliente no encontrado' });
+
+        if (!canAccessCliente(db, req.user, current, { action: 'write' }))
+            return res.status(403).json({ error: 'No tienes permisos para editar este cliente' });
 
         const cliente = repo.update(id, req.body, current);
         res.json(cliente);
@@ -84,12 +87,15 @@ router.put('/:id', authorize('admin'), async (req, res) => {
 // ----------------------------------------------------------------
 // DELETE /api/clientes/:id
 // ----------------------------------------------------------------
-router.delete('/:id', authorize('admin'), async (req, res) => {
+router.delete('/:id', authorize('admin', 'tecnico'), async (req, res) => {
     try {
         const db   = await getDb();
         const repo = new ClienteRepository(db);
         const cliente = repo.getById(req.params.id);
         if (!cliente) return res.status(404).json({ error: 'Cliente no encontrado' });
+
+        if (!canAccessCliente(db, req.user, cliente, { action: 'write' }))
+            return res.status(403).json({ error: 'No tienes permisos para eliminar este cliente' });
 
         repo.delete(cliente.id);
         res.json({ message: 'Cliente eliminado correctamente' });

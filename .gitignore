@@ -29,3 +29,5 @@ yarn-error.log*
 # Ficheros accidentales (ej: sqlite memory bugs)
 :memory:
 *.db
+Claude.md
+CLAUDE.md
